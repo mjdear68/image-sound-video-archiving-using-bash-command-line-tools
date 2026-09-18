@@ -105,6 +105,44 @@ img_gps_cp() {
         exiftool -overwrite_original -tagsfromfile "$ref" -GPSLatitude* -GPSLongitude* -GPSAltitude* -@ -
 }
 
+img_dt_shift() {
+    # Safety Check: Ensure all arguments are provided
+    if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
+        echo "Usage: img_dt_shift [input_dir] [output_dir] [+/-hh:mm:ss] [optional_new_tz_offset]"
+        echo "Example (Shift -9 hrs): img_dt_shift ./input ./output -09:00:00"
+        echo "Example (Shift -9 hrs & set EXIF TZ to -05:00): img_dt_shift ./input ./output -09:00:00 -05:00"
+        return 1
+    fi
+    
+    local input=$1        # input directory
+    local output=$2       # output directory
+    local delta=$3        # image created datetime adjustment (+/-hh:mm:ss)
+    local new_tz=$4       # optional explicit timezone offset (e.g. -05:00)
+    
+    # Check if input directory exists
+    check_dir "$input" || return 1
+    
+    # Make the output directory if it does not exist
+    mkdir -p -v "$output"
+    
+    # Build ExifTool offset arguments conditionally
+    local tz_args=()
+    if [ -n "$new_tz" ]; then
+        tz_args=(
+            "-OffsetTime*=${new_tz}"
+        )
+    fi
+
+    # Execute transformation
+    find "$input" -regextype posix-extended -type f -iregex "$regex_ext" | \
+        exiftool -api QuickTimeUTC \
+                 "-AllDates${delta:0:1}=${delta#[-+]}" \
+                 "${tz_args[@]}" \
+                 -o "$output/%f.%e" \
+                 -@ -
+}
+
+
 img_cp() {
     # Safety Check: Ensure all arguments are provided
     if [ -z "$1" ] || [ -z "$2" ]; then
