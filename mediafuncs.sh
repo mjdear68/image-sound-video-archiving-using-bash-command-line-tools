@@ -106,18 +106,19 @@ img_gps_cp() {
 }
 
 img_dt_shift() {
-    # Safety Check: Ensure all arguments are provided
+    # Safety Check: Ensure required arguments are provided
     if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
         echo "Usage: img_dt_shift [input_dir] [output_dir] [+/-hh:mm:ss] [optional_new_tz_offset]"
-        echo "Example (Shift -9 hrs): img_dt_shift ./input ./output -09:00:00"
-        echo "Example (Shift -9 hrs & set EXIF TZ to -05:00): img_dt_shift ./input ./output -09:00:00 -05:00"
+        echo "Example: img_dt_shift ./input ./output -09:00:00"
+        echo "Example (with TZ): img_dt_shift ./input ./output -09:00:00 -05:00"
         return 1
     fi
     
+    # Declare local variables
     local input=$1        # input directory
     local output=$2       # output directory
-    local delta=$3        # image created datetime adjustment (+/-hh:mm:ss)
-    local new_tz=$4       # optional explicit timezone offset (e.g. -05:00)
+    local delta=$3        # image datetime adjustment (+/-hh:mm:ss)
+    local new_tz=$4       # optional explicit timezone offset (e.g., -05:00)
     
     # Check if input directory exists
     check_dir "$input" || return 1
@@ -230,6 +231,36 @@ img_exif_to_csv() {
     fi
 }
 
+img_exif_from_csv() {
+    # Safety Check: Ensure required arguments are provided
+    if [ -z "$1" ] || [ -z "$2" ]; then
+        echo "Usage: img_exif_from_csv <input_file.csv> <target_dir>"
+        echo "Example: img_exif_from_csv metadata.csv ./image_dir" 
+        return 1
+    fi
+    
+    local input_csv="$1"
+    local target_dir="$2"
+    
+    # Check if CSV file exists
+    if [ ! -f "$input_csv" ]; then
+        echo "Error: Input CSV file '$input_csv' does not exist." >&2
+        return 1
+    fi
+
+    # Check if target directory exists
+    check_dir "$target_dir" || return 1
+    
+    echo "Importing metadata from '$input_csv' into '$target_dir'..."
+
+    # Target JPEG/JPG files using native ExifTool flags
+    if exiftool -csv="$input_csv" -ext jpg -ext jpeg -overwrite_original "$target_dir"; then
+        echo "Success! Metadata imported to '$target_dir'"
+    else
+        echo "An error occurred during metadata import." >&2
+        return 1
+    fi
+}
 
 img_resize() {
     # Safety Check: Ensure all arguments are provided
