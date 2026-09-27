@@ -202,26 +202,28 @@ img_exif_to_csv() {
     # Safety Check: Ensure all arguments are provided
     if [ -z "$1" ] || [ -z "$2" ]; then
         echo "Usage: img_exif_to_csv [input_dir] [output_file.csv]"
-		echo "Example: img_exif_to_csv ./input metadata.csv" 
+        echo "Example: img_exif_to_csv ./input metadata.csv" 
         return 1
     fi
-	
-	# Declare local variables
-	local input="$1"
-	local output_csv="$2"
-	
-	# Check if input directory exists
+    
+    # Declare local variables
+    local input="$1"
+    local output_csv="$2"
+    
+    # Check if input directory exists
     check_dir "$input" || return 1
-	
-	# Proceed with function execution
-	echo "Extracting metadata from '$input' into '$output_csv'..."
-	# -n -c "%.6f" gives signed decimal coords
+    
+    # Proceed with function execution
+    echo "Extracting metadata from '$input' into '$output_csv'..."
+    # -f forces headers to exist even if tags are empty/missing
+    # -api MissingTagValue="" ensures missing values print as blank instead of "-"
     find "$input" -regextype posix-extended -type f -iregex "$regex_ext" | \
         exiftool -csv -r \
-		-Title -Subject -Keywords \
-		-GPSLatitude* -GPSLongitude* -GPSAltitude* \
-		-n -c "%.6f" \
-		-@ - > "$output_csv"
+        -f -api MissingTagValue="" \
+        -Title -Keywords \
+        -GPSLatitude -GPSLongitude -GPSAltitude \
+        -n -c "%.6f" \
+        -@ - > "$output_csv"
 
     if [ $? -eq 0 ]; then
         echo "Success! Metadata exported to $output_csv"
