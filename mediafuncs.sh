@@ -215,13 +215,16 @@ img_exif_to_csv() {
     
     # Proceed with function execution
     echo "Extracting metadata from '$input' into '$output_csv'..."
-    # -f forces headers to exist even if tags are empty/missing
-    # -api MissingTagValue="" ensures missing values print as blank instead of "-"
+    # -n -c "%.6f" gives signed decimal coords
     find "$input" -regextype posix-extended -type f -iregex "$regex_ext" | \
         exiftool -csv -r \
         -f -api MissingTagValue="" \
+		# Name all tags explicitly. Wildcards will only export tags that exist in the images.
         -Title -Keywords \
-        -GPSLatitude -GPSLongitude -GPSAltitude \
+		# GPSLatitudeRef: N, S
+		# GPSLongitudeRef: E, W
+		# GPSAltitudeRef: 0 = above sea level; 1 = below sea level
+        -GPSLatitude -GPSLatitudeRef -GPSLongitude -GPSLongitudeRef -GPSAltitude -GPSAltitudeRef \
         -n -c "%.6f" \
         -@ - > "$output_csv"
 
