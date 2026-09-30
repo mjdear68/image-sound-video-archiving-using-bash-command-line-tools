@@ -69,7 +69,17 @@ Although the functions can be used independently, they are best used as a part o
 
 : Media Processing Workflow
 
-Additional steps to be completed as required:
+### Alternative Workflow: CSV Export / Import
+
+Replace the `img_group` and `img_desc` steps in the above workflow with `img_exif_to_csv` and `img_exif_from_csv`. 
+
+1. Export the existing title, keywords, GPS, and altitude EXIF tags from the renamed images to csv using `img_exif_to_csv`. 
+2. Edit the exported csv, then bulk import the updated tags into the renamed images using `img_exif_from_csv`. 
+3. Proceed with the remainder of the original workflow.
+
+
+
+**Additional steps to be completed as required:**
 
 * adjust image date/time and timezone
 * rotate images

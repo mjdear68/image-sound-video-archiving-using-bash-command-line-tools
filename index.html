@@ -96,6 +96,16 @@ directory.</td>
 directory recursively and write to CSV.</td>
 </tr>
 <tr>
+<td>img_exif_from_csv</td>
+<td>Import Title, Keywords, and GPS-related tags from a CSV into images
+in a given directory.</td>
+</tr>
+<tr>
+<td>img_dt_shift</td>
+<td>Shift the datetime tags and set the timezone of a directory of
+images recursively.</td>
+</tr>
+<tr>
 <td>img_resize</td>
 <td>Resizes all jpeg images in the input directory to a given pixel
 width or percentage of original size. Writes resized images to the
@@ -227,13 +237,27 @@ a future version.</td>
 </tr>
 </tbody>
 </table>
-<p>Additional steps to be completed as required:</p>
+<h3 id="alternative-workflow-csv-export-import">Alternative Workflow:
+CSV Export / Import</h3>
+<p>Replace the <code>img_group</code> and <code>img_desc</code> steps in
+the above workflow with <code>img_exif_to_csv</code> and
+<code>img_exif_from_csv</code>.</p>
+<ol type="1">
+<li>Export the existing title, keywords, GPS, and altitude EXIF tags
+from the renamed images to csv using <code>img_exif_to_csv</code>.</li>
+<li>Edit the exported csv, then bulk import the updated tags into the
+renamed images using <code>img_exif_from_csv</code>.</li>
+<li>Proceed with the remainder of the original workflow.</li>
+</ol>
+<p><strong>Additional steps to be completed as required:</strong></p>
 <ul>
+<li>adjust image date/time and timezone</li>
 <li>rotate images</li>
 <li>resize images</li>
 <li>copy GPS information from a reference image to non-GPS images</li>
 <li>extract metadata from a directory of images to csv for import into a
 GIS</li>
+<li>copy metadata into images from a csv</li>
 <li>tint images</li>
 </ul>
 </body>
