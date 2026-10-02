@@ -219,7 +219,7 @@ img_exif_to_csv() {
     find "$input" -regextype posix-extended -type f -iregex "$regex_ext" | \
         exiftool -csv -r \
         -f -api MissingTagValue="" \
-		# Name all tags explicitly. Wildcards will only export tags that exist in the images.
+		# Name all tags explicitly. Wildcards will only export tags that exist in the files.
         -Title -Keywords \
 		# GPSLatitudeRef: N, S
 		# GPSLongitudeRef: E, W
@@ -464,4 +464,41 @@ snd_to_flac() {
         ffmpeg -i "$f" -compression_level "$comp_level" -n "$output/${pure_name}.flac" < /dev/null
 
     done < <(find "$input" -regextype posix-extended -type f -iregex "$regex_ext" -print0)
+}
+flac_create_csv_template() {
+    # Safety Check: Ensure required arguments are provided
+    if [ -z "$1" ] || [ -z "$2" ]; then
+        echo "Usage: flac_create_csv_template <input_dir> <output_file.csv>"
+        echo "Example: flac_create_csv_template ./flac_audio flac_template.csv"
+        return 1
+    fi
+
+    local input_dir="$1"
+    local output_csv="$2"
+
+    # Check if target directory exists
+    if [ ! -d "$input_dir" ]; then
+        echo "Error: Target directory '$input_dir' does not exist." >&2
+        return 1
+    fi
+
+    echo "Generating CSV template from FLAC files in '$input_dir'..."
+
+    # Generate CSV with headers matching ExifTool import expectations
+    exiftool -csv -r \
+        -f -api MissingTagValue="" \
+        -ext flac \
+        -Title -Keywords \
+        -GPSLatitude -GPSLatitudeRef \
+        -GPSLongitude -GPSLongitudeRef \
+        -GPSAltitude -GPSAltitudeRef \
+        -c "%.6f" \
+        "$input_dir" > "$output_csv"
+
+    if [ $? -eq 0 ]; then
+        echo "Success! CSV import template saved to: $output_csv"
+    else
+        echo "An error occurred during CSV generation." >&2
+        return 1
+    fi
 }
