@@ -423,3 +423,45 @@ vid_batch_conv() {
         done
     fi
 }
+
+#########
+# Sound Functions
+#########
+
+snd_to_flac() {
+	# Safety Check: Ensure all arguments are provided
+    if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
+        echo "Usage: snd_to_flac [input_dir] [output_dir] [compression_level] "
+        echo "Example: snd_to_flac ./input ./output 5"
+        return 1
+    fi
+	
+	# Declare local variables
+    local input="$1"       # Input folder
+    local output="$2"      # Output folder
+    local comp_level="${3:-5}" # Compression level (defaults to 5 if empty)
+    
+    # Define regex for file-types to find (.wav or .mp3)
+    local regex_ext='.*\.(wav|mp3)'
+
+    # Make the output directory if it does not exist
+    mkdir -p -v "$output"
+
+    # Loop through the files found by find safely using a null-delimiter (-print0)
+    while IFS= read -r -d '' f; do
+        # Extract just the raw filename without the folder path (e.g., "song.wav")
+        local base_name
+        base_name=$(basename "$f")
+        
+        # Strip the trailing extension (.wav or .mp3)
+        local pure_name="${base_name%.*}"
+        
+        echo "Converting: $base_name -> $pure_name.flac"
+        
+        # Execute ffmpeg (or ffmpeg.exe if you are strictly on Git Bash/WSL pointing to Windows host)
+        # -n prevents overwriting files if they already exist
+        # </dev/null prevents ffmpeg from greedily swallowing the loop's stdin stream
+        ffmpeg -i "$f" -compression_level "$comp_level" -n "$output/${pure_name}.flac" < /dev/null
+
+    done < <(find "$input" -regextype posix-extended -type f -iregex "$regex_ext" -print0)
+}
