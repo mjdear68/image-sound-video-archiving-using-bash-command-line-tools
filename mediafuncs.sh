@@ -261,7 +261,7 @@ img_exif_from_csv() {
     echo "Importing metadata from '$input_csv' into '$target_dir'..."
 
     # Target JPEG/JPG files using native ExifTool flags
-    if exiftool -csv="$input_csv"  "-GPSLatitudeRef<GPSLatitude" "-GPSLongitudeRef<GPSLongitude" "-GPSAltitudeRef<GPSAltitude" -ext jpg -ext jpeg -ext flac -overwrite_original "$target_dir"; then
+    if exiftool -csv="$input_csv" "-GPSLatitude" "-GPSLatitudeRef<GPSLatitude" "-GPSLongitude" "-GPSLongitudeRef<GPSLongitude" "-GPSAltitude" "-GPSAltitudeRef<GPSAltitude" -ext jpg -ext jpeg -overwrite_original "$target_dir"; then
         echo "Success! Metadata imported to '$target_dir'"
     else
         echo "An error occurred during metadata import." >&2
