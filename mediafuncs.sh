@@ -320,8 +320,8 @@ flac_metadata_from_csv() {
             echo "Updating metadata for: $target_file"
             
             # Apply tags cleanly to Vorbis Comments using metaflac
-			[ -n "$datetime" ]    && metaflac --remove-tag=TITLE --set-tag="DATETIME=$datetime" "$target_file"
-			[ -n "$model" ]    && metaflac --remove-tag=TITLE --set-tag="MODEL=$model" "$target_file"
+			[ -n "$datetime" ]    && metaflac --remove-tag=DATETIMEORIGINAL --set-tag="DATETIMEORIGINAL=$datetime" "$target_file"
+			[ -n "$model" ]    && metaflac --remove-tag=MODEL --set-tag="MODEL=$model" "$target_file"
             [ -n "$title" ]    && metaflac --remove-tag=TITLE --set-tag="TITLE=$title" "$target_file"
             [ -n "$keywords" ] && metaflac --remove-tag=KEYWORDS --set-tag="KEYWORDS=$keywords" "$target_file"
             [ -n "$gpslat" ]   && metaflac --remove-tag=GPSLATITUDE --set-tag="GPSLATITUDE=$gpslat" "$target_file"
