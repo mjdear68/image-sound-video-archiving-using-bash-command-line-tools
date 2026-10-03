@@ -21,23 +21,25 @@ check_dir() {
 
 img_rename() {
     # Safety Check: Ensure all arguments are provided
-    if [ -z "$1" ] || [ -z "$2" ]; then
-        echo "Usage: img_rename [input_dir] [output_dir]"
-        echo "Example: img_rename ./input ./output"
+    if [ -z "$1" ] || [ -z "$2" ]|| [ -z "$3" ]; then
+        echo "Usage: img_rename [input_dir] [output_dir] [extension]"
+        echo "Example: img_rename ./input ./output jpg"
         return 1
     fi
     
 	# Declare local variables
 	local input=$1    # input directory
     local output=$2   # output directory
+	local ext=$3	  # output file extension
 	
 	# Check if input directory exists
     check_dir "$input" || return 1
 	
     # Proceed with function execution
     find "$input" -regextype posix-extended -type f -iregex "$regex_ext" | \
-        exiftool "-filename<$output/\${model;tr/ /_/;s/__+/_/g}-\${datetimeoriginal}" \
-             -r -o . -d "%Y%m%d_%H%M%S%%-c.$std_ext" -@ -
+        exiftool -d "%Y%m%d_%H%M%S" \
+		"-filename<$output/\${model;tr/ /_/;s/__+/_/g}-\${datetimeoriginal}%-c.$ext" \
+             -r -o .  -@ -
 }
 
 img_group() {
@@ -269,72 +271,6 @@ img_metadata_from_csv() {
     fi
 }
 
-flac_metadata_from_csv() {
-    # Safety Check: Ensure required arguments are provided
-    if [ -z "$1" ] || [ -z "$2" ]; then
-        echo "Usage: flac_metadata_from_csv <input_file.csv> <target_dir>"
-        echo "Example: flac_metadata_from_csv metadata.csv ./flac_dir"
-        return 1
-    fi
-
-    local input_csv="$1"
-    local target_dir="$2"
-
-    if [ ! -f "$input_csv" ]; then
-        echo "Error: Input CSV file '$input_csv' does not exist." >&2
-        return 1
-    fi
-
-    if [ ! -d "$target_dir" ]; then
-        echo "Error: Target directory '$target_dir' does not exist." >&2
-        return 1
-    fi
-
-    # Read CSV row by row with exact matching column variables
-    local header=true
-    while IFS=',' read -r sourcefile datetime model title keywords gpslat gpslong gpsalt; do
-        
-        # Clean surrounding quotes and carriage returns (\r) from Windows CSVs
-        sourcefile=$(echo "$sourcefile" | tr -d '"\r')
-		datetime=$(echo "$datetime" | tr -d '"\r')
-		model=$(echo "$model" | tr -d '"\r')
-        title=$(echo "$title" | tr -d '"\r')
-        keywords=$(echo "$keywords" | tr -d '"\r')
-        gpslat=$(echo "$gpslat" | tr -d '"\r')
-        gpslong=$(echo "$gpslong" | tr -d '"\r')
-        gpsalt=$(echo "$gpsalt" | tr -d '"\r')
-
-        # Skip header line
-        if [ "$header" = true ]; then
-            header=false
-            continue
-        fi
-
-        # Skip empty rows
-        [ -z "$sourcefile" ] && continue
-
-        # Resolve path to target file
-        local target_file="$target_dir/$(basename "$sourcefile")"
-
-        if [ -f "$target_file" ]; then
-            echo "Updating metadata for: $target_file"
-            
-            # Apply tags cleanly to Vorbis Comments using metaflac
-			[ -n "$datetime" ]    && metaflac --remove-tag=DATETIMEORIGINAL --set-tag="DATETIMEORIGINAL=$datetime" "$target_file"
-			[ -n "$model" ]    && metaflac --remove-tag=MODEL --set-tag="MODEL=$model" "$target_file"
-            [ -n "$title" ]    && metaflac --remove-tag=TITLE --set-tag="TITLE=$title" "$target_file"
-            [ -n "$keywords" ] && metaflac --remove-tag=KEYWORDS --set-tag="KEYWORDS=$keywords" "$target_file"
-            [ -n "$gpslat" ]   && metaflac --remove-tag=GPSLATITUDE --set-tag="GPSLATITUDE=$gpslat" "$target_file"
-            [ -n "$gpslong" ]  && metaflac --remove-tag=GPSLONGITUDE --set-tag="GPSLONGITUDE=$gpslong" "$target_file"
-            [ -n "$gpsalt" ]   && metaflac --remove-tag=GPSALTITUDE --set-tag="GPSALTITUDE=$gpsalt" "$target_file"
-        else
-            echo "Warning: File '$target_file' not found." >&2
-        fi
-    done < "$input_csv"
-
-    echo "Metadata import completed."
-}
-
 img_resize() {
     # Safety Check: Ensure all arguments are provided
     if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
@@ -404,6 +340,210 @@ img_tint() {
 	# Proceed with function execution
     find "$input" -regextype posix-extended -type f -iregex "$regex_ext" \
         -exec magick mogrify -path "$output" -fill "$fill" -colorize "$strength" {} +
+}
+
+############
+# Sound Functions
+############
+
+wav_to_flac() {
+	# Safety Check: Ensure all arguments are provided
+    if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
+        echo "Usage: wav_to_flac [input_dir] [output_dir] [compression_level] "
+        echo "Example: wav_to_flac ./input ./output 5"
+        return 1
+    fi
+	
+	# Declare local variables
+    local input="$1"       # Input folder
+    local output="$2"      # Output folder
+    local comp_level="${3:-5}" # Compression level (defaults to 5 if empty)
+    
+    # Define regex for file-types to find (.wav or .mp3)
+    local regex_ext='.*\.(wav|mp3)'
+
+    # Make the output directory if it does not exist
+    mkdir -p -v "$output"
+
+    # Loop through the files found by find safely using a null-delimiter (-print0)
+    while IFS= read -r -d '' f; do
+        # Extract just the raw filename without the folder path (e.g., "song.wav")
+        local base_name
+        base_name=$(basename "$f")
+        
+        # Strip the trailing extension (.wav or .mp3)
+        local pure_name="${base_name%.*}"
+        
+        echo "Converting: $base_name -> $pure_name.flac"
+        
+        # Execute ffmpeg (or ffmpeg.exe if you are strictly on Git Bash/WSL pointing to Windows host)
+        # -n prevents overwriting files if they already exist
+        # </dev/null prevents ffmpeg from greedily swallowing the loop's stdin stream
+        ffmpeg -i "$f" -compression_level "$comp_level" -n "$output/${pure_name}.flac" < /dev/null
+
+    done < <(find "$input" -regextype posix-extended -type f -iregex "$regex_ext" -print0)
+}
+
+flac_create_csv_template() {
+    # Safety Check: Ensure required arguments are provided
+    if [ -z "$1" ] || [ -z "$2" ]; then
+        echo "Usage: flac_create_csv_template <input_dir> <output_file.csv>"
+        echo "Example: flac_create_csv_template ./flac_audio flac_template.csv"
+        return 1
+    fi
+
+    local input_dir="$1"
+    local output_csv="$2"
+
+    # Check if target directory exists
+    if [ ! -d "$input_dir" ]; then
+        echo "Error: Target directory '$input_dir' does not exist." >&2
+        return 1
+    fi
+
+    echo "Generating CSV template from FLAC files in '$input_dir'..."
+
+    # Generate CSV with headers matching ExifTool import expectations
+    exiftool -csv -r \
+        -f -api MissingTagValue="" \
+        -ext flac \
+        -Title -Keywords \
+        -GPSLatitude -GPSLatitudeRef \
+        -GPSLongitude -GPSLongitudeRef \
+        -GPSAltitude -GPSAltitudeRef \
+        -c "%.6f" \
+        "$input_dir" > "$output_csv"
+
+    if [ $? -eq 0 ]; then
+        echo "Success! CSV import template saved to: $output_csv"
+    else
+        echo "An error occurred during CSV generation." >&2
+        return 1
+    fi
+}
+
+flac_metadata_from_csv() {
+    # Safety Check: Ensure required arguments are provided
+    if [ -z "$1" ] || [ -z "$2" ]; then
+        echo "Usage: flac_metadata_from_csv <input_file.csv> <target_dir>"
+        echo "Example: flac_metadata_from_csv metadata.csv ./flac_dir"
+        return 1
+    fi
+
+    local input_csv="$1"
+    local target_dir="$2"
+
+    if [ ! -f "$input_csv" ]; then
+        echo "Error: Input CSV file '$input_csv' does not exist." >&2
+        return 1
+    fi
+
+    if [ ! -d "$target_dir" ]; then
+        echo "Error: Target directory '$target_dir' does not exist." >&2
+        return 1
+    fi
+
+    # Read CSV row by row with exact matching column variables
+    local header=true
+    while IFS=',' read -r sourcefile datetime model title keywords gpslat gpslong gpsalt; do
+        
+        # Clean surrounding quotes and carriage returns (\r) from Windows CSVs
+        sourcefile=$(echo "$sourcefile" | tr -d '"\r')
+		datetime=$(echo "$datetime" | tr -d '"\r')
+		model=$(echo "$model" | tr -d '"\r')
+        title=$(echo "$title" | tr -d '"\r')
+        keywords=$(echo "$keywords" | tr -d '"\r')
+        gpslat=$(echo "$gpslat" | tr -d '"\r')
+        gpslong=$(echo "$gpslong" | tr -d '"\r')
+        gpsalt=$(echo "$gpsalt" | tr -d '"\r')
+
+        # Skip header line
+        if [ "$header" = true ]; then
+            header=false
+            continue
+        fi
+
+        # Skip empty rows
+        [ -z "$sourcefile" ] && continue
+
+        # Resolve path to target file
+        local target_file="$target_dir/$(basename "$sourcefile")"
+
+        if [ -f "$target_file" ]; then
+            echo "Updating metadata for: $target_file"
+            
+            # Apply tags cleanly to Vorbis Comments using metaflac
+			[ -n "$datetime" ]    && metaflac --remove-tag=DATETIMEORIGINAL --set-tag="DATETIMEORIGINAL=$datetime" "$target_file"
+			[ -n "$model" ]    && metaflac --remove-tag=MODEL --set-tag="MODEL=$model" "$target_file"
+            [ -n "$title" ]    && metaflac --remove-tag=TITLE --set-tag="TITLE=$title" "$target_file"
+            [ -n "$keywords" ] && metaflac --remove-tag=KEYWORDS --set-tag="KEYWORDS=$keywords" "$target_file"
+            [ -n "$gpslat" ]   && metaflac --remove-tag=GPSLATITUDE --set-tag="GPSLATITUDE=$gpslat" "$target_file"
+            [ -n "$gpslong" ]  && metaflac --remove-tag=GPSLONGITUDE --set-tag="GPSLONGITUDE=$gpslong" "$target_file"
+            [ -n "$gpsalt" ]   && metaflac --remove-tag=GPSALTITUDE --set-tag="GPSALTITUDE=$gpsalt" "$target_file"
+        else
+            echo "Warning: File '$target_file' not found." >&2
+        fi
+    done < "$input_csv"
+
+    echo "Metadata import completed."
+}
+
+flac_rename() {
+    # Safety Check: Ensure all arguments are provided
+    if [ -z "$1" ] || [ -z "$2" ]; then
+        echo "Usage: flac_rename [input_dir] [output_dir]"
+        echo "Example: flac_rename ./input ./output"
+        return 1
+    fi
+
+    local input="$1"
+    local output="$2"
+
+    check_dir "$input" || return 1[cite: 3]
+
+    # Create output directory if it does not exist
+    mkdir -p "$output"
+
+    echo "Renaming FLAC files from '$input' into '$output'..."
+
+    # Loop through each .flac file found
+    find "$input" -regextype posix-extended -type f -iregex "$regex_ext" | while read -r f; do
+        [ -f "$f" ] || continue
+
+        # 1. Read TITLE tag from FLAC header
+        local title
+        title=$(metaflac --show-tag=TITLE "$f" | sed 's/^TITLE=//' | tr -d '\r')
+
+        # Fallback to file name if TITLE tag is missing
+        if [ -z "$title" ]; then
+            title=$(basename "$f" .flac)
+        fi
+
+        # 2. Extract DATE or TIMESTAMP tag
+        local date_str
+        date_str=$(metaflac --show-tag=DATE "$f" | sed 's/^DATE=//' | tr -d '\r')
+
+        # Fallback to modification date if DATE tag is missing
+        if [ -z "$date_str" ]; then
+            date_str=$(date -r "$f" +"%Y%m%d_%H%M%S")
+        fi
+
+        # 3. Clean and sanitize variables in pure Bash:
+        #    - Replace spaces with underscores
+        #    - Remove colons (:), dashes (-), and illegal path characters
+        title=$(echo "$title" | tr ' ' '_' | sed 's/[^A-Za-z0-9_-]//g')
+        date_clean=$(echo "$date_str" | tr -d ':-' | tr ' ' '_')
+
+        # 4. Construct the clean destination filename
+        local new_filename="${title}-${date_clean}.flac"
+        local dest_path="$output/$new_filename"
+
+        echo "Copying/Renaming: $(basename "$f") -> $new_filename"
+        cp "$f" "$dest_path"
+
+    done
+
+    echo "FLAC renaming completed successfully."
 }
 
 
@@ -492,81 +632,3 @@ vid_batch_conv() {
     fi
 }
 
-#########
-# Sound Functions
-#########
-
-snd_to_flac() {
-	# Safety Check: Ensure all arguments are provided
-    if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
-        echo "Usage: snd_to_flac [input_dir] [output_dir] [compression_level] "
-        echo "Example: snd_to_flac ./input ./output 5"
-        return 1
-    fi
-	
-	# Declare local variables
-    local input="$1"       # Input folder
-    local output="$2"      # Output folder
-    local comp_level="${3:-5}" # Compression level (defaults to 5 if empty)
-    
-    # Define regex for file-types to find (.wav or .mp3)
-    local regex_ext='.*\.(wav|mp3)'
-
-    # Make the output directory if it does not exist
-    mkdir -p -v "$output"
-
-    # Loop through the files found by find safely using a null-delimiter (-print0)
-    while IFS= read -r -d '' f; do
-        # Extract just the raw filename without the folder path (e.g., "song.wav")
-        local base_name
-        base_name=$(basename "$f")
-        
-        # Strip the trailing extension (.wav or .mp3)
-        local pure_name="${base_name%.*}"
-        
-        echo "Converting: $base_name -> $pure_name.flac"
-        
-        # Execute ffmpeg (or ffmpeg.exe if you are strictly on Git Bash/WSL pointing to Windows host)
-        # -n prevents overwriting files if they already exist
-        # </dev/null prevents ffmpeg from greedily swallowing the loop's stdin stream
-        ffmpeg -i "$f" -compression_level "$comp_level" -n "$output/${pure_name}.flac" < /dev/null
-
-    done < <(find "$input" -regextype posix-extended -type f -iregex "$regex_ext" -print0)
-}
-flac_create_csv_template() {
-    # Safety Check: Ensure required arguments are provided
-    if [ -z "$1" ] || [ -z "$2" ]; then
-        echo "Usage: flac_create_csv_template <input_dir> <output_file.csv>"
-        echo "Example: flac_create_csv_template ./flac_audio flac_template.csv"
-        return 1
-    fi
-
-    local input_dir="$1"
-    local output_csv="$2"
-
-    # Check if target directory exists
-    if [ ! -d "$input_dir" ]; then
-        echo "Error: Target directory '$input_dir' does not exist." >&2
-        return 1
-    fi
-
-    echo "Generating CSV template from FLAC files in '$input_dir'..."
-
-    # Generate CSV with headers matching ExifTool import expectations
-    exiftool -csv -r \
-        -f -api MissingTagValue="" \
-        -ext flac \
-        -Title -Keywords \
-        -GPSLatitude -GPSLatitudeRef \
-        -GPSLongitude -GPSLongitudeRef \
-        -GPSAltitude -GPSAltitudeRef \
-        -c "%.6f" \
-        "$input_dir" > "$output_csv"
-
-    if [ $? -eq 0 ]; then
-        echo "Success! CSV import template saved to: $output_csv"
-    else
-        echo "An error occurred during CSV generation." >&2
-        return 1
-    fi
-}
