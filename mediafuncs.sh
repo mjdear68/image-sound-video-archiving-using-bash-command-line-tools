@@ -225,7 +225,7 @@ img_exif_to_csv() {
         -f -api MissingTagValue="" \
 		-DateTimeOriginal -Model \
         -Title -Keywords \
-        -GPSLatitude -GPSLatitudeRef -GPSLongitude -GPSLongitudeRef -GPSAltitude -GPSAltitudeRef \
+        -GPSLatitude -GPSLongitude -GPSAltitude \
         -n -c "%.6f" \
         -@ - > "$output_csv"
 
@@ -237,6 +237,7 @@ img_exif_to_csv() {
     fi
 }
 
+# Will not work for flac; exiftool can read flac only
 img_exif_from_csv() {
     # Safety Check: Ensure required arguments are provided
     if [ -z "$1" ] || [ -z "$2" ]; then
@@ -260,12 +261,78 @@ img_exif_from_csv() {
     echo "Importing metadata from '$input_csv' into '$target_dir'..."
 
     # Target JPEG/JPG files using native ExifTool flags
-    if exiftool -csv="$input_csv" -ext jpg -ext jpeg -overwrite_original "$target_dir"; then
+    if exiftool -csv="$input_csv"  "-GPSLatitudeRef<GPSLatitude" "-GPSLongitudeRef<GPSLongitude" "-GPSAltitudeRef<GPSAltitude" -ext jpg -ext jpeg -ext flac -overwrite_original "$target_dir"; then
         echo "Success! Metadata imported to '$target_dir'"
     else
         echo "An error occurred during metadata import." >&2
         return 1
     fi
+}
+
+flac_metadata_from_csv() {
+    # Safety Check: Ensure required arguments are provided
+    if [ -z "$1" ] || [ -z "$2" ]; then
+        echo "Usage: flac_metadata_from_csv <input_file.csv> <target_dir>"
+        echo "Example: flac_metadata_from_csv metadata.csv ./flac_dir"
+        return 1
+    fi
+
+    local input_csv="$1"
+    local target_dir="$2"
+
+    if [ ! -f "$input_csv" ]; then
+        echo "Error: Input CSV file '$input_csv' does not exist." >&2
+        return 1
+    fi
+
+    if [ ! -d "$target_dir" ]; then
+        echo "Error: Target directory '$target_dir' does not exist." >&2
+        return 1
+    fi
+
+    # Read CSV row by row with exact matching column variables
+    local header=true
+    while IFS=',' read -r sourcefile datetime model title keywords gpslat gpslong gpsalt; do
+        
+        # Clean surrounding quotes and carriage returns (\r) from Windows CSVs
+        sourcefile=$(echo "$sourcefile" | tr -d '"\r')
+		datetime=$(echo "$datetime" | tr -d '"\r')
+		model=$(echo "$model" | tr -d '"\r')
+        title=$(echo "$title" | tr -d '"\r')
+        keywords=$(echo "$keywords" | tr -d '"\r')
+        gpslat=$(echo "$gpslat" | tr -d '"\r')
+        gpslong=$(echo "$gpslong" | tr -d '"\r')
+        gpsalt=$(echo "$gpsalt" | tr -d '"\r')
+
+        # Skip header line
+        if [ "$header" = true ]; then
+            header=false
+            continue
+        fi
+
+        # Skip empty rows
+        [ -z "$sourcefile" ] && continue
+
+        # Resolve path to target file
+        local target_file="$target_dir/$(basename "$sourcefile")"
+
+        if [ -f "$target_file" ]; then
+            echo "Updating metadata for: $target_file"
+            
+            # Apply tags cleanly to Vorbis Comments using metaflac
+			[ -n "$datetime" ]    && metaflac --remove-tag=TITLE --set-tag="DATETIME=$datetime" "$target_file"
+			[ -n "$model" ]    && metaflac --remove-tag=TITLE --set-tag="MODEL=$model" "$target_file"
+            [ -n "$title" ]    && metaflac --remove-tag=TITLE --set-tag="TITLE=$title" "$target_file"
+            [ -n "$keywords" ] && metaflac --remove-tag=KEYWORDS --set-tag="KEYWORDS=$keywords" "$target_file"
+            [ -n "$gpslat" ]   && metaflac --remove-tag=GPSLATITUDE --set-tag="GPSLATITUDE=$gpslat" "$target_file"
+            [ -n "$gpslong" ]  && metaflac --remove-tag=GPSLONGITUDE --set-tag="GPSLONGITUDE=$gpslong" "$target_file"
+            [ -n "$gpsalt" ]   && metaflac --remove-tag=GPSALTITUDE --set-tag="GPSALTITUDE=$gpsalt" "$target_file"
+        else
+            echo "Warning: File '$target_file' not found." >&2
+        fi
+    done < "$input_csv"
+
+    echo "Metadata import completed."
 }
 
 img_resize() {
