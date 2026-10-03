@@ -223,6 +223,7 @@ img_exif_to_csv() {
     find "$input" -regextype posix-extended -type f -iregex "$regex_ext" | \
         exiftool -csv -r \
         -f -api MissingTagValue="" \
+		-DateTimeOriginal -Model \
         -Title -Keywords \
         -GPSLatitude -GPSLatitudeRef -GPSLongitude -GPSLongitudeRef -GPSAltitude -GPSAltitudeRef \
         -n -c "%.6f" \
