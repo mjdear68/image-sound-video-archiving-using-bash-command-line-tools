@@ -198,7 +198,7 @@ img_rm() {
     esac
 }
 
-img_exif_to_csv() {
+img_metadata_to_csv() {
     # Safety Check: Ensure all arguments are provided
     if [ -z "$1" ] || [ -z "$2" ]; then
         echo "Usage: img_exif_to_csv [input_dir] [output_file.csv]"
@@ -238,7 +238,7 @@ img_exif_to_csv() {
 }
 
 # Will not work for flac; exiftool can read flac only
-img_exif_from_csv() {
+img_metadata_from_csv() {
     # Safety Check: Ensure required arguments are provided
     if [ -z "$1" ] || [ -z "$2" ]; then
         echo "Usage: img_exif_from_csv <input_file.csv> <target_dir>"
