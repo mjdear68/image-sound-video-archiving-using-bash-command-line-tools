@@ -346,20 +346,178 @@ img_tint() {
 # Sound Functions
 ############
 
-wav_to_flac() {
-    # Safety Check: Ensure required arguments are provided
+### Workflow 1 ###
+wav_create_csv_template() {
+    if [ -z "$1" ] || [ -z "$2" ]; then
+        echo "Usage: wav_create_csv_template <input_dir> <output_file.csv>"
+        echo "Example: wav_create_csv_template ./wav_audio wav_template.csv"
+        return 1
+    fi
+
+    local input_dir="$1"
+    local output_csv="$2"
+
+    check_dir "$input_dir" || return 1
+
+    echo "Generating CSV template from WAV files in '$input_dir'..."
+
+    # Write CSV Header matching exact Vorbis tag names
+    echo "SourceFile,DATETIMEORIGINAL,MODEL,SOFTWARE,TITLE,LOCATION,KEYWORDS,GPSLATITUDE,GPSLONGITUDE,GPSALTITUDE" > "$output_csv"
+
+    # Find WAV files and read existing filenames
+    find "$input_dir" -type f -name "*.wav" | sort | while read -r f; do
+        local datetime model software title location keywords gpslatitude gpslongitude gpsaltitude
+        
+        # Extract base filename without path or extension
+        local pure_name
+        pure_name=$(basename "$f")
+        pure_name="${pure_name%.*}"
+
+        # Construct DATETIMEORIGINAL from each file's Date Modified in format yyyy:mm:dd hh:mm:ss
+        datetime=$(date -r "$f" +"%Y:%m:%d %H:%M:%S")
+
+        # Output pure base name for robust cross-extension matching
+        echo "\"$pure_name\",\"$datetime\",\"$model\",\"$software\",\"$title\",\"$location\",\"$keywords\",\"$gpslatitude\",\"$gpslongitude\",\"$gpsaltitude\"" >> "$output_csv"
+    done
+
+    echo "Success! CSV import template saved to: $output_csv"
+}
+
+wav_to_flac_full() {
+    if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
+        echo "Usage: wav_to_flac <input_dir> <output_dir> <input_csv> [compression_level]"
+        echo "Example: wav_to_flac ./wav_input ./flac_output metadata.csv 5"
+        return 1
+    fi
+
+    local input="$1"
+    local output="$2"
+    local input_csv="$3"
+    local comp_level="${4:-5}"
+    
+    local regex_ext='.*\.(wav|mp3)'
+
+    check_dir "$input" || return 1
+
+    if [ ! -f "$input_csv" ]; then
+        echo "Error: Input CSV file '$input_csv' does not exist." >&2
+        return 1
+    fi
+
+    mkdir -p "$output"
+
+    echo "Step 1: Converting audio files to FLAC..."
+    while IFS= read -r -d '' f; do
+        local base_name pure_name
+        base_name=$(basename "$f")
+        pure_name="${base_name%.*}"
+        
+        echo "Converting: $base_name -> ${pure_name}.flac"
+        ffmpeg -i "$f" -compression_level "$comp_level" -n "$output/${pure_name}.flac" < /dev/null
+    done < <(find "$input" -regextype posix-extended -type f -iregex "$regex_ext" -print0)
+
+    echo "Step 2: Importing metadata from CSV to FLAC files..."
+    local header=true
+    
+    # Store explicit Carriage Return character for safe removal
+    local cr=$'\r'
+
+    while IFS=',' read -r sourcefile datetime model software title location keywords gpslatitude gpslongitude gpsaltitude; do
+        if [ "$header" = true ]; then
+            header=false
+            continue
+        fi
+
+        # Safely remove double-quotes and carriage returns (\r) without affecting the letter 'r'
+        sourcefile="${sourcefile//[\"$cr]/}"
+        datetime="${datetime//[\"$cr]/}"
+        model="${model//[\"$cr]/}"
+        software="${software//[\"$cr]/}"
+        title="${title//[\"$cr]/}"
+        location="${location//[\"$cr]/}"
+        keywords="${keywords//[\"$cr]/}"
+        gpslatitude="${gpslatitude//[\"$cr]/}"
+        gpslongitude="${gpslongitude//[\"$cr]/}"
+        gpsaltitude="${gpsaltitude//[\"$cr]/}"
+
+        [ -z "$sourcefile" ] && continue
+
+        # Resolve FLAC path in target output directory using base filename
+        local base_source
+        base_source=$(basename "$sourcefile")
+        base_source="${base_source%.*}"
+        
+        local target_file="$output/${base_source}.flac"
+
+        if [ -f "$target_file" ]; then
+            echo "Applying Vorbis tags to: $(basename "$target_file")"
+            
+            [ -n "$datetime" ]    && metaflac --remove-tag=DATETIMEORIGINAL --set-tag="DATETIMEORIGINAL=$datetime" "$target_file"
+            [ -n "$model" ]       && metaflac --remove-tag=MODEL --set-tag="MODEL=$model" "$target_file"
+            [ -n "$software" ]    && metaflac --remove-tag=SOFTWARE --set-tag="SOFTWARE=$software" "$target_file"
+            [ -n "$title" ]       && metaflac --remove-tag=TITLE --set-tag="TITLE=$title" "$target_file"
+            [ -n "$location" ]    && metaflac --remove-tag=LOCATION --set-tag="LOCATION=$location" "$target_file"
+            [ -n "$keywords" ]    && metaflac --remove-tag=KEYWORDS --set-tag="KEYWORDS=$keywords" "$target_file"
+            [ -n "$gpslatitude" ] && metaflac --remove-tag=GPSLATITUDE --set-tag="GPSLATITUDE=$gpslatitude" "$target_file"
+            [ -n "$gpslongitude" ]&& metaflac --remove-tag=GPSLONGITUDE --set-tag="GPSLONGITUDE=$gpslongitude" "$target_file"
+            [ -n "$gpsaltitude" ] && metaflac --remove-tag=GPSALTITUDE --set-tag="GPSALTITUDE=$gpsaltitude" "$target_file"
+        else
+            echo "Warning: Target file '$target_file' not found." >&2
+        fi
+    done < "$input_csv"
+
+    echo "Step 3: Renaming FLAC files using TITLE-LOCATION-%Y%m%d_%H%M%S format..."
+    find "$output" -type f -name "*.flac" | while read -r f; do
+        [ -f "$f" ] || continue
+
+        local title_tag location_tag date_raw
+        title_tag=$(metaflac --show-tag=TITLE "$f" | sed 's/^TITLE=//' | tr -d '\r')
+        location_tag=$(metaflac --show-tag=LOCATION "$f" | sed 's/^LOCATION=//' | tr -d '\r')
+        date_raw=$(metaflac --show-tag=DATETIMEORIGINAL "$f" | sed 's/^DATETIMEORIGINAL=//' | tr -d '\r')
+
+        # Fallbacks for missing tags
+        [ -z "$title_tag" ] && title_tag="Untitled"
+        [ -z "$location_tag" ] && location_tag="UnknownLocation"
+        if [ -z "$date_raw" ]; then
+            date_raw=$(date -r "$f" +"%Y%m%d_%H%M%S")
+        fi
+
+        # Clean metadata fields for filesystem compatibility
+        local title_clean location_clean date_clean
+        title_clean=$(echo "$title_tag" | tr ' ' '_' | sed -E 's/[^[:alnum:]_-]//g')
+        location_clean=$(echo "$location_tag" | tr ' ' '_' | sed -E 's/[^[:alnum:]_-]//g')
+        
+        # Format raw timestamp into %Y%m%d_%H%M%S
+        date_clean=$(echo "$date_raw" | tr -d ':-' | tr ' ' '_')
+
+        local new_filename="${title_clean}-${location_clean}-${date_clean}.flac"
+        local dest_path="$output/$new_filename"
+
+        if [ "$f" != "$dest_path" ]; then
+            echo "Renaming: $(basename "$f") -> $new_filename"
+            mv "$f" "$dest_path"
+        fi
+    done
+
+    echo "Processing complete!"
+}
+
+### Workflow 2 ###
+wav_to_flac_simple() {
     if [ -z "$1" ] || [ -z "$2" ]; then
         echo "Usage: wav_to_flac <input_dir> <output_dir> [compression_level]"
         echo "Example: wav_to_flac ./input ./output 5"
         return 1
     fi
 	
-    local input="$1"       # Input folder
-    local output="$2"      # Output folder
-    local comp_level="${3:-5}" # Compression level (defaults to 5 if empty)
+    local input="$1"
+    local output="$2"
+    local comp_level="${3:-5}"
     
     local regex_ext='.*\.(wav|mp3)'
+
     mkdir -p "$output"
+
     while IFS= read -r -d '' f; do
         local base_name
         base_name=$(basename "$f")
@@ -368,39 +526,44 @@ wav_to_flac() {
         
         echo "Converting: $base_name -> $pure_name.flac"
         
-        # </dev/null prevents ffmpeg from greedily consuming stdin stream
         ffmpeg -i "$f" -compression_level "$comp_level" -n "$output/${pure_name}.flac" < /dev/null
+
     done < <(find "$input" -regextype posix-extended -type f -iregex "$regex_ext" -print0)
 }
 
 flac_create_csv_template() {
-    # Safety Check: Ensure required arguments are provided
     if [ -z "$1" ] || [ -z "$2" ]; then
         echo "Usage: flac_create_csv_template <input_dir> <output_file.csv>"
         echo "Example: flac_create_csv_template ./flac_audio flac_template.csv"
         return 1
     fi
+
     local input_dir="$1"
     local output_csv="$2"
+
     check_dir "$input_dir" || return 1
-    echo "Generating CSV template from FLAC files in '$input_dir' using metaflac..."
-    # Write CSV Header matching requested layout
-    echo "SOURCEFILE,DATETIMEORIGINAL,MODEL,SOFTWARE,TITLE,KEYWORDS,GPSLATITUDE,GPSLONGITUDE,GPSALTITUDE" > "$output_csv"
+
+    echo "Generating CSV template from FLAC files in '$input_dir'..."
+
+    # Write CSV Header matching exact Vorbis tag names
+    echo "SourceFile,DATETIMEORIGINAL,MODEL,SOFTWARE,TITLE,KEYWORDS,GPSLATITUDE,GPSLONGITUDE,GPSALTITUDE" > "$output_csv"
+
     # Find FLAC files and read existing tags using metaflac
     find "$input_dir" -type f -name "*.flac" | sort | while read -r f; do
-        # Extract existing tags if present
-        local dt model sw title kw lat long alt
-        dt=$(metaflac --show-tag=DATETIMEORIGINAL "$f" | sed 's/^DATETIMEORIGINAL=//' | tr -d '\r')
+        local datetime model software title keywords gpslatitude gpslongitude gpsaltitude
+
+        datetime=$(metaflac --show-tag=DATETIMEORIGINAL "$f" | sed 's/^DATETIMEORIGINAL=//' | tr -d '\r')
         model=$(metaflac --show-tag=MODEL "$f" | sed 's/^MODEL=//' | tr -d '\r')
-        sw=$(metaflac --show-tag=SOFTWARE "$f" | sed 's/^SOFTWARE=//' | tr -d '\r')
+        software=$(metaflac --show-tag=SOFTWARE "$f" | sed 's/^SOFTWARE=//' | tr -d '\r')
         title=$(metaflac --show-tag=TITLE "$f" | sed 's/^TITLE=//' | tr -d '\r')
-        kw=$(metaflac --show-tag=KEYWORDS "$f" | sed 's/^KEYWORDS=//' | tr -d '\r')
-        lat=$(metaflac --show-tag=GPSLATITUDE "$f" | sed 's/^GPSLATITUDE=//' | tr -d '\r')
-        long=$(metaflac --show-tag=GPSLONGITUDE "$f" | sed 's/^GPSLONGITUDE=//' | tr -d '\r')
-        alt=$(metaflac --show-tag=GPSALTITUDE "$f" | sed 's/^GPSALTITUDE=//' | tr -d '\r')
-        # Output row with relative path
-        echo "\"$f\",\"$dt\",\"$model\",\"$sw\",\"$title\",\"$kw\",\"$lat\",\"$long\",\"$alt\"" >> "$output_csv"
+        keywords=$(metaflac --show-tag=KEYWORDS "$f" | sed 's/^KEYWORDS=//' | tr -d '\r')
+        gpslatitude=$(metaflac --show-tag=GPSLATITUDE "$f" | sed 's/^GPSLATITUDE=//' | tr -d '\r')
+        gpslongitude=$(metaflac --show-tag=GPSLONGITUDE "$f" | sed 's/^GPSLONGITUDE=//' | tr -d '\r')
+        gpsaltitude=$(metaflac --show-tag=GPSALTITUDE "$f" | sed 's/^GPSALTITUDE=//' | tr -d '\r')
+
+        echo "\"$f\",\"$datetime\",\"$model\",\"$software\",\"$title\",\"$keywords\",\"$gpslatitude\",\"$gpslongitude\",\"$gpsaltitude\"" >> "$output_csv"
     done
+
     echo "Success! CSV import template saved to: $output_csv"
 }
 
@@ -410,52 +573,60 @@ flac_metadata_from_csv() {
         echo "Example: flac_metadata_from_csv metadata.csv ./flac_dir"
         return 1
     fi
+
     local input_csv="$1"
     local target_dir="$2"
+
     if [ ! -f "$input_csv" ]; then
         echo "Error: Input CSV file '$input_csv' does not exist." >&2
         return 1
     fi
+
     check_dir "$target_dir" || return 1
+
     local header=true
-    while IFS=',' read -r sourcefile datetime device software title keywords latitude longitude altitude; do
+    while IFS=',' read -r sourcefile datetime model software title keywords gpslatitude gpslongitude gpsaltitude; do
         
-        # Clean quotes, trailing spaces, and Windows line-endings (\r)
+        # Clean quotes and Windows line endings (\r)
         sourcefile=$(echo "$sourcefile" | tr -d '"\r')
         datetime=$(echo "$datetime" | tr -d '"\r')
-        device=$(echo "$device" | tr -d '"\r')
+        model=$(echo "$model" | tr -d '"\r')
         software=$(echo "$software" | tr -d '"\r')
         title=$(echo "$title" | tr -d '"\r')
         keywords=$(echo "$keywords" | tr -d '"\r')
-        latitude=$(echo "$latitude" | tr -d '"\r')
-        longitude=$(echo "$longitude" | tr -d '"\r')
-        altitude=$(echo "$altitude" | tr -d '"\r')
+        gpslatitude=$(echo "$gpslatitude" | tr -d '"\r')
+        gpslongitude=$(echo "$gpslongitude" | tr -d '"\r')
+        gpsaltitude=$(echo "$gpsaltitude" | tr -d '"\r')
+
         if [ "$header" = true ]; then
             header=false
             continue
         fi
+
         [ -z "$sourcefile" ] && continue
-        # Match relative file path or fallback to filename in target_dir
+
         local target_file="$sourcefile"
         if [ ! -f "$target_file" ]; then
             target_file="$target_dir/$(basename "$sourcefile")"
         fi
+
         if [ -f "$target_file" ]; then
             echo "Updating metadata for: $target_file"
             
-            # Apply Vorbis tags cleanly via metaflac
-            [ -n "$datetime" ]  && metaflac --remove-tag=DATETIMEORIGINAL --set-tag="DATETIMEORIGINAL=$datetime" "$target_file"
-            [ -n "$device" ]    && metaflac --remove-tag=MODEL --set-tag="MODEL=$device" "$target_file"
-            [ -n "$software" ]  && metaflac --remove-tag=SOFTWARE --set-tag="SOFTWARE=$software" "$target_file"
-            [ -n "$title" ]     && metaflac --remove-tag=TITLE --set-tag="TITLE=$title" "$target_file"
-            [ -n "$keywords" ]  && metaflac --remove-tag=KEYWORDS --set-tag="KEYWORDS=$keywords" "$target_file"
-            [ -n "$latitude" ]  && metaflac --remove-tag=GPSLATITUDE --set-tag="GPSLATITUDE=$latitude" "$target_file"
-            [ -n "$longitude" ] && metaflac --remove-tag=GPSLONGITUDE --set-tag="GPSLONGITUDE=$longitude" "$target_file"
-            [ -n "$altitude" ]  && metaflac --remove-tag=GPSALTITUDE --set-tag="GPSALTITUDE=$altitude" "$target_file"
+            # Apply tags using exact matching Vorbis keys
+            [ -n "$datetime" ]     && metaflac --remove-tag=DATETIMEORIGINAL --set-tag="DATETIMEORIGINAL=$datetime" "$target_file"
+            [ -n "$model" ]        && metaflac --remove-tag=MODEL --set-tag="MODEL=$model" "$target_file"
+            [ -n "$software" ]     && metaflac --remove-tag=SOFTWARE --set-tag="SOFTWARE=$software" "$target_file"
+            [ -n "$title" ]        && metaflac --remove-tag=TITLE --set-tag="TITLE=$title" "$target_file"
+            [ -n "$keywords" ]     && metaflac --remove-tag=KEYWORDS --set-tag="KEYWORDS=$keywords" "$target_file"
+            [ -n "$gpslatitude" ]  && metaflac --remove-tag=GPSLATITUDE --set-tag="GPSLATITUDE=$gpslatitude" "$target_file"
+            [ -n "$gpslongitude" ] && metaflac --remove-tag=GPSLONGITUDE --set-tag="GPSLONGITUDE=$gpslongitude" "$target_file"
+            [ -n "$gpsaltitude" ]  && metaflac --remove-tag=GPSALTITUDE --set-tag="GPSALTITUDE=$gpsaltitude" "$target_file"
         else
             echo "Warning: File '$target_file' not found." >&2
         fi
     done < "$input_csv"
+
     echo "Metadata import completed."
 }
 
@@ -465,36 +636,42 @@ flac_rename() {
         echo "Example: flac_rename ./input ./output"
         return 1
     fi
+
     local input="$1"
     local output="$2"
+
     check_dir "$input" || return 1
+
     mkdir -p "$output"
+
     echo "Renaming FLAC files from '$input' into '$output'..."
+
     find "$input" -type f -name "*.flac" | while read -r f; do
         [ -f "$f" ] || continue
-        # 1. Read tags from FLAC header
+
         local device software date_raw
         device=$(metaflac --show-tag=MODEL "$f" | sed 's/^MODEL=//' | tr -d '\r')
         software=$(metaflac --show-tag=SOFTWARE "$f" | sed 's/^SOFTWARE=//' | tr -d '\r')
         date_raw=$(metaflac --show-tag=DATETIMEORIGINAL "$f" | sed 's/^DATETIMEORIGINAL=//' | tr -d '\r')
-        # Fallbacks if tags are missing
+
         [ -z "$device" ] && device="device"
         [ -z "$software" ] && software="app"
         if [ -z "$date_raw" ]; then
             date_raw=$(date -r "$f" +"%Y%m%d_%H%M%S")
         fi
-        # 2. Sanitize text fields (lowercase, replace spaces/special chars with underscores)
+
         device_clean=$(echo "$device" | tr '[:upper:]' '[:lower:]' | tr ' ' '_' | sed 's/[^a-z0-9_-]//g')
         software_clean=$(echo "$software" | tr '[:upper:]' '[:lower:]' | tr ' ' '_' | sed 's/[^a-z0-9_-]//g')
-        # 3. Format date to YYYYMMDD_HHMMSS (handles 2026-10-03 09:25:31 or 2026:10:03 09:25:31)
-        local date_clean
         date_clean=$(echo "$date_raw" | tr -d ':-' | tr ' ' '_')
-        # 4. Construct output filename: device-software-yyyymmdd_hhmmss.flac
+
         local new_filename="${device_clean}-${software_clean}-${date_clean}.flac"
         local dest_path="$output/$new_filename"
+
         echo "Copying/Renaming: $(basename "$f") -> $new_filename"
         cp "$f" "$dest_path"
+
     done
+
     echo "FLAC renaming completed successfully."
 }
 
