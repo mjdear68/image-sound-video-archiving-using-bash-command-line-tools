@@ -1,4 +1,4 @@
-# Image, Sound, and Video Tagging and Processing Using Bash Command Line Tools
+# Image, Sound, and Video Archiving Using Bash Command Line Tools
 
 Author: Michael Dear 
  
