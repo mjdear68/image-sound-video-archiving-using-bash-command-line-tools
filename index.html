@@ -26,20 +26,25 @@
 </head>
 <body>
 <h1
-id="image-and-video-tagging-and-processing-using-bash-command-line-tools">Image
-and Video Tagging and Processing Using Bash Command Line Tools</h1>
+id="image-sound-and-video-tagging-and-processing-using-bash-command-line-tools">Image,
+Sound, and Video Tagging and Processing Using Bash Command Line
+Tools</h1>
 <p>Author: Michael Dear</p>
 <p>Created: May 2026<br />
-Updated: 2026-07-10</p>
+Updated: 2026-10-08</p>
 <h2 id="about">About</h2>
 <p>This project uses Bash command-line tools - <em>ExifTool</em>,
 <em>ImageMagick</em>, <em>ffmpeg</em> - to label and process JPEG
-photographic images and video files. The imgfuncs.sh file contains
-<em>Bash</em> functions for renaming files using metadata, writing
-keywords and titles to metadata, rotating and resizing images, and
-converting videos to <em>.mp4</em> to enable compression and metadata
-tagging. The functions have been developed using Bash on Ubuntu Linux
+photographic images and video files. The mediafuncs.sh file contains
+<em>Bash</em> functions for performing various media archiving
+operations. The functions have been developed using Bash on Ubuntu Linux
 (WSL).</p>
+<h2 id="disclaimer">Disclaimer</h2>
+<p>The code for these functions was written largely by Google Gemini
+with my guidance. I am not a highly skilled coder and make no claims to
+be so. I have posted these functions and associated information here in
+the hope that others will find them useful as a suite of media archiving
+tools.</p>
 <h2 id="functions">Functions</h2>
 <p>The Functions Summary Table lists the functions and their purpose.
 Calling a function without parameters will print the function’s
@@ -122,6 +127,17 @@ Writes rotated images to the output directory.</td>
 images to the output directory.</td>
 </tr>
 <tr>
+<td>WAV_create_csv_template</td>
+<td>Create a csv metadata template that can be completed and imported
+into flac files using WAV_to_flac</td>
+</tr>
+<tr>
+<td>WAV_to_flac</td>
+<td>Convert a directory of WAV files to flac format, import metadata
+from a csv file, and rename the files using metadata tags. Name format
+title-location-yyyymmdd_hhmmss.</td>
+</tr>
+<tr>
 <td>vid_conv</td>
 <td>Convert a video to .mp4 format and copy metadata tags from a tagged
 reference image.</td>
@@ -150,8 +166,8 @@ input.</td>
 <tr>
 <td><a href="https://git-scm.com/">Git Bash (5.2.26(1)-release
 x86_64-pc-msys)</a></td>
-<td>Shell: executing the functions in imgfuncs.sh; copying and deleting
-files</td>
+<td>Shell: executing the functions in mediafuncs.sh; copying and
+deleting files</td>
 </tr>
 <tr>
 <td><a href="https://exiftool.org/">ExifTool (13.45)</a></td>
@@ -164,16 +180,20 @@ x64)</a></td>
 </tr>
 <tr>
 <td><a href="https://www.ffmpeg.org/">ffmpeg 8.0.1-3ubuntu2</a></td>
-<td></td>
+<td>Conversion from WAV to FLAC format</td>
+</tr>
+<tr>
+<td><a href="https://xiph.org/flac/index.html">metaflac 1.5.0</a></td>
+<td>FLAC metadata operations</td>
 </tr>
 </tbody>
 </table>
-<h2 id="workflow">Workflow</h2>
+<h2 id="image-workflow">Image Workflow</h2>
 <p>Although the functions can be used independently, they are best used
 as a part of an media processing workflow. My typical workflow follows
 the steps in the Media Processing Workflow table.</p>
 <table>
-<caption>Media Processing Workflow</caption>
+<caption>Image Processing Workflow</caption>
 <colgroup>
 <col style="width: 40%" />
 <col style="width: 60%" />
@@ -186,9 +206,9 @@ the steps in the Media Processing Workflow table.</p>
 </thead>
 <tbody>
 <tr>
-<td>Load <code>imgfuncs.sh</code></td>
-<td><code>source imgfuncs.sh</code> (assuming <code>imgfuncs.sh</code>
-is in the current directory)</td>
+<td>Load <code>mediafuncs.sh</code></td>
+<td><code>source mediafuncs.sh</code> (assuming
+<code>mediafuncs.sh</code> is in the current directory)</td>
 </tr>
 <tr>
 <td>Make temporary directories</td>
@@ -260,5 +280,60 @@ GIS</li>
 <li>copy metadata into images from a csv</li>
 <li>tint images</li>
 </ul>
+<h2 id="sound-workflow">Sound Workflow</h2>
+<p>The purpose of this workflow is convert raw WAV files into
+losslessly-compressed FLAC files with metadata.</p>
+<table>
+<caption>Sound Processing Workflow</caption>
+<colgroup>
+<col style="width: 40%" />
+<col style="width: 60%" />
+</colgroup>
+<thead>
+<tr>
+<th>Step</th>
+<th>Command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Load <code>mediafuncs.sh</code></td>
+<td><code>source mediafuncs.sh</code> (assuming
+<code>mediafuncs.sh</code> is in the current directory)</td>
+</tr>
+<tr>
+<td>Make temporary directories</td>
+<td><code>mkdir recordings recordings/WAV_original recordings/WAV_edited recordings/flac</code></td>
+</tr>
+<tr>
+<td>Change to the <code>recordings</code> directory</td>
+<td><code>cd recordings</code></td>
+</tr>
+<tr>
+<td>Download WAV files into <code>WAV_original</code> directory</td>
+<td>Drag-and-drop or your preferred method</td>
+</tr>
+<tr>
+<td>Create a metadata template <strong>before</strong> editing the WAVs
+to preserve their original datetime stamp</td>
+<td><code>WAV_create_csv_template WAV_original metadata.csv</code></td>
+</tr>
+<tr>
+<td>Manual review - use sound editing software to review and trim
+recordings. Save these edited WAV files to WAV_edited. Update
+<code>metadata.csv</code> as you go.</td>
+<td>Sound editing software such as Audacity; spreadsheet for editing
+<code>metadata.csv</code></td>
+</tr>
+<tr>
+<td>Convert WAV to FLAC</td>
+<td><code>WAV_to_flac WAV_edited flac metadata.csv 5</code></td>
+</tr>
+<tr>
+<td>Copy processed recordings to recording archive</td>
+<td>This is currently a manual process.</td>
+</tr>
+</tbody>
+</table>
 </body>
 </html>
