@@ -361,11 +361,11 @@ wav_create_csv_template() {
     echo "Generating CSV template from WAV files in '$input_dir'..."
 
     # Write CSV Header matching exact Vorbis tag names
-    echo "SourceFile,DATETIMEORIGINAL,MODEL,SOFTWARE,TITLE,LOCATION,KEYWORDS,GPSLATITUDE,GPSLONGITUDE,GPSALTITUDE" > "$output_csv"
+    echo "SourceFile,DATETIMEORIGINAL,MODEL,SOFTWARE,TITLE,KEYWORDS,LOCATION,GPSLATITUDE,GPSLONGITUDE,GPSALTITUDE" > "$output_csv"
 
     # Find WAV files and read existing filenames
     find "$input_dir" -type f -name "*.wav" | sort | while read -r f; do
-        local datetime model software title location keywords gpslatitude gpslongitude gpsaltitude
+        local datetime model software title keywords location gpslatitude gpslongitude gpsaltitude
         
         # Extract base filename without path or extension
         local pure_name
@@ -376,7 +376,7 @@ wav_create_csv_template() {
         datetime=$(date -r "$f" +"%Y:%m:%d %H:%M:%S")
 
         # Output pure base name for robust cross-extension matching
-        echo "\"$pure_name\",\"$datetime\",\"$model\",\"$software\",\"$title\",\"$location\",\"$keywords\",\"$gpslatitude\",\"$gpslongitude\",\"$gpsaltitude\"" >> "$output_csv"
+        echo "\"$pure_name\",\"$datetime\",\"$model\",\"$software\",\"$title\",\"$keywords\",\"$location\",\"$gpslatitude\",\"$gpslongitude\",\"$gpsaltitude\"" >> "$output_csv"
     done
 
     echo "Success! CSV import template saved to: $output_csv"
@@ -421,7 +421,7 @@ wav_to_flac() {
     # Store explicit Carriage Return character for safe removal
     local cr=$'\r'
 
-    while IFS=',' read -r sourcefile datetime model software title location keywords gpslatitude gpslongitude gpsaltitude; do
+    while IFS=',' read -r sourcefile datetime model software title keywords location gpslatitude gpslongitude gpsaltitude; do
         if [ "$header" = true ]; then
             header=false
             continue
@@ -433,8 +433,8 @@ wav_to_flac() {
         model="${model//[\"$cr]/}"
         software="${software//[\"$cr]/}"
         title="${title//[\"$cr]/}"
-        location="${location//[\"$cr]/}"
         keywords="${keywords//[\"$cr]/}"
+		location="${location//[\"$cr]/}"
         gpslatitude="${gpslatitude//[\"$cr]/}"
         gpslongitude="${gpslongitude//[\"$cr]/}"
         gpsaltitude="${gpsaltitude//[\"$cr]/}"
@@ -455,8 +455,8 @@ wav_to_flac() {
             [ -n "$model" ]       && metaflac --remove-tag=MODEL --set-tag="MODEL=$model" "$target_file"
             [ -n "$software" ]    && metaflac --remove-tag=SOFTWARE --set-tag="SOFTWARE=$software" "$target_file"
             [ -n "$title" ]       && metaflac --remove-tag=TITLE --set-tag="TITLE=$title" "$target_file"
-            [ -n "$location" ]    && metaflac --remove-tag=LOCATION --set-tag="LOCATION=$location" "$target_file"
             [ -n "$keywords" ]    && metaflac --remove-tag=KEYWORDS --set-tag="KEYWORDS=$keywords" "$target_file"
+			[ -n "$location" ]    && metaflac --remove-tag=LOCATION --set-tag="LOCATION=$location" "$target_file"
             [ -n "$gpslatitude" ] && metaflac --remove-tag=GPSLATITUDE --set-tag="GPSLATITUDE=$gpslatitude" "$target_file"
             [ -n "$gpslongitude" ]&& metaflac --remove-tag=GPSLONGITUDE --set-tag="GPSLONGITUDE=$gpslongitude" "$target_file"
             [ -n "$gpsaltitude" ] && metaflac --remove-tag=GPSALTITUDE --set-tag="GPSALTITUDE=$gpsaltitude" "$target_file"
@@ -489,7 +489,7 @@ wav_to_flac() {
         # Format raw timestamp into %Y%m%d_%H%M%S
         date_clean=$(echo "$date_raw" | tr -d ':-' | tr ' ' '_')
 
-        local new_filename="${title_clean}-${location_clean}-${date_clean}.flac"
+        local new_filename="${title_clean}--${location_clean}--${date_clean}.flac"
         local dest_path="$output/$new_filename"
 
         if [ "$f" != "$dest_path" ]; then
