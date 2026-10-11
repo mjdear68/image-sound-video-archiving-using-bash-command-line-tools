@@ -21,16 +21,15 @@ check_dir() {
 
 img_rename() {
     # Safety Check: Ensure all arguments are provided
-    if [ -z "$1" ] || [ -z "$2" ]|| [ -z "$3" ]; then
-        echo "Usage: img_rename [input_dir] [output_dir] [extension]"
-        echo "Example: img_rename ./input ./output jpg"
+    if [ -z "$1" ] || [ -z "$2" ]; then
+        echo "Usage: img_rename [input_dir] [output_dir]"
+        echo "Example: img_rename ./input ./output"
         return 1
     fi
     
 	# Declare local variables
 	local input=$1    # input directory
     local output=$2   # output directory
-	local ext=$3	  # output file extension
 	
 	# Check if input directory exists
     check_dir "$input" || return 1
@@ -38,7 +37,7 @@ img_rename() {
     # Proceed with function execution
     find "$input" -regextype posix-extended -type f -iregex "$regex_ext" | \
         exiftool -d "%Y%m%d_%H%M%S" \
-		"-filename<$output/\${model;tr/ /_/;s/__+/_/g}-\${datetimeoriginal}%-c.$ext" \
+		"-filename<$output/\${model;tr/ /_/;s/__+/_/g}-\${datetimeoriginal}%-c.jpg" \
              -r -o .  -@ -
 }
 
