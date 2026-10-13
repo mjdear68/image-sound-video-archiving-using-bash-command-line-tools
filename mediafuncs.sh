@@ -359,7 +359,7 @@ wav_create_csv_template() {
 
     echo "Generating CSV template from WAV files in '$input_dir'..."
 
-    # Write CSV Header matching exact Vorbis tag names
+    # Write CSV Header with grouped Location & GPS tags
     echo "SourceFile,DATETIMEORIGINAL,MODEL,SOFTWARE,TITLE,KEYWORDS,LOCATION,GPSLATITUDE,GPSLONGITUDE,GPSALTITUDE" > "$output_csv"
 
     # Find WAV files and read existing filenames
@@ -374,7 +374,7 @@ wav_create_csv_template() {
         # Construct DATETIMEORIGINAL from each file's Date Modified in format yyyy:mm:dd hh:mm:ss
         datetime=$(date -r "$f" +"%Y:%m:%d %H:%M:%S")
 
-        # Output pure base name for robust cross-extension matching
+        # Output row with regrouped Location/GPS columns
         echo "\"$pure_name\",\"$datetime\",\"$model\",\"$software\",\"$title\",\"$keywords\",\"$location\",\"$gpslatitude\",\"$gpslongitude\",\"$gpsaltitude\"" >> "$output_csv"
     done
 
@@ -420,20 +420,21 @@ wav_to_flac() {
     # Store explicit Carriage Return character for safe removal
     local cr=$'\r'
 
+    # Read variables matched to the updated CSV column order
     while IFS=',' read -r sourcefile datetime model software title keywords location gpslatitude gpslongitude gpsaltitude; do
         if [ "$header" = true ]; then
             header=false
             continue
         fi
 
-        # Safely remove double-quotes and carriage returns (\r) without affecting the letter 'r'
+        # Safely remove double-quotes and carriage returns (\r)
         sourcefile="${sourcefile//[\"$cr]/}"
         datetime="${datetime//[\"$cr]/}"
         model="${model//[\"$cr]/}"
         software="${software//[\"$cr]/}"
         title="${title//[\"$cr]/}"
         keywords="${keywords//[\"$cr]/}"
-		location="${location//[\"$cr]/}"
+        location="${location//[\"$cr]/}"
         gpslatitude="${gpslatitude//[\"$cr]/}"
         gpslongitude="${gpslongitude//[\"$cr]/}"
         gpsaltitude="${gpsaltitude//[\"$cr]/}"
@@ -455,7 +456,7 @@ wav_to_flac() {
             [ -n "$software" ]    && metaflac --remove-tag=SOFTWARE --set-tag="SOFTWARE=$software" "$target_file"
             [ -n "$title" ]       && metaflac --remove-tag=TITLE --set-tag="TITLE=$title" "$target_file"
             [ -n "$keywords" ]    && metaflac --remove-tag=KEYWORDS --set-tag="KEYWORDS=$keywords" "$target_file"
-			[ -n "$location" ]    && metaflac --remove-tag=LOCATION --set-tag="LOCATION=$location" "$target_file"
+            [ -n "$location" ]    && metaflac --remove-tag=LOCATION --set-tag="LOCATION=$location" "$target_file"
             [ -n "$gpslatitude" ] && metaflac --remove-tag=GPSLATITUDE --set-tag="GPSLATITUDE=$gpslatitude" "$target_file"
             [ -n "$gpslongitude" ]&& metaflac --remove-tag=GPSLONGITUDE --set-tag="GPSLONGITUDE=$gpslongitude" "$target_file"
             [ -n "$gpsaltitude" ] && metaflac --remove-tag=GPSALTITUDE --set-tag="GPSALTITUDE=$gpsaltitude" "$target_file"
@@ -488,7 +489,7 @@ wav_to_flac() {
         # Format raw timestamp into %Y%m%d_%H%M%S
         date_clean=$(echo "$date_raw" | tr -d ':-' | tr ' ' '_')
 
-        local new_filename="${title_clean}--${location_clean}--${date_clean}.flac"
+        local new_filename="${title_clean}-${location_clean}-${date_clean}.flac"
         local dest_path="$output/$new_filename"
 
         if [ "$f" != "$dest_path" ]; then
@@ -500,6 +501,44 @@ wav_to_flac() {
     echo "Processing complete!"
 }
 
+flac_to_wav() {
+    if [ -z "$1" ] || [ -z "$2" ]; then
+        echo "Usage: flac_to_wav <input_dir_or_file> <output_dir>"
+        echo "Example: flac_to_wav ./flac_input ./wav_output"
+        return 1
+    fi
+
+    local input="$1"
+    local output="$2"
+
+    mkdir -p "$output"
+
+    # Process a single file or an entire directory of FLAC files
+    if [ -f "$input" ]; then
+        local base_name pure_name
+        base_name=$(basename "$input")
+        pure_name="${base_name%.*}"
+
+        echo "Converting: $base_name -> ${pure_name}.wav"
+        ffmpeg -i "$input" -n "$output/${pure_name}.wav" < /dev/null
+
+    elif [ -d "$input" ]; then
+        echo "Converting all FLAC files from '$input' to WAV in '$output'..."
+        while IFS= read -r -d '' f; do
+            local base_name pure_name
+            base_name=$(basename "$f")
+            pure_name="${base_name%.*}"
+
+            echo "Converting: $base_name -> ${pure_name}.wav"
+            ffmpeg -i "$f" -n "$output/${pure_name}.wav" < /dev/null
+        done < <(find "$input" -type f -name "*.flac" -print0)
+    else
+        echo "Error: Input '$input' is neither a valid file nor a directory." >&2
+        return 1
+    fi
+
+    echo "FLAC to WAV conversion completed."
+}
 
 #########
 # Video Functions
