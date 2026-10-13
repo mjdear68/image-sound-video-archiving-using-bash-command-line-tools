@@ -27,8 +27,8 @@ The Functions Summary Table lists the functions and their purpose. Calling a fun
 | img_cp | Copy all jpeg images from the input directory to the ouput directory. |
 | img_rm | Delete all jpeg images and empty directories recursively from the input directory.|
 | img_gps_cp | Copy GPS latitude, longitude - both in decimal degrees - and altitude (metres) from a reference image to all jpeg images in the input directory. |
-| img_exif_to_csv | Extract Title, Keywords, and GPS-related tags from images in a given directory recursively and write to CSV.  |
-| img_exif_from_csv | Import Title, Keywords, and GPS-related tags from a CSV into images in a given directory.  |
+| img_metadata_to_csv | Extract Title, Keywords, and GPS-related tags from images in a given directory recursively and write to CSV.  |
+| img_metadata_from_csv | Import Title, Keywords, and GPS-related tags from a CSV into images in a given directory.  |
 | img_dt_shift | Shift the datetime tags and set the timezone of a directory of images recursively. |
 | img_resize | Resizes all jpeg images in the input directory to a given pixel width or percentage of original size. Writes resized images to the output directory. |
 | img_rotate | Rotates all jpeg images in the input directory n degrees clockwise. Writes rotated images to the output directory. |
