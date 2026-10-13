@@ -1,8 +1,7 @@
 #!/bin/bash
 
 # Global variables
-regex_ext='.*\.(jpg|jpeg|flac)' # Cleaned up for posix-extended
-std_ext='jpg' # Extension for img_rename
+regex_ext='.*\.(jpg|jpeg)' # Cleaned up for posix-extended
 
 # Helper function: Validates if a directory exists
 check_dir() {
