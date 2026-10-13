@@ -262,12 +262,46 @@ img_metadata_from_csv() {
     echo "Importing metadata from '$input_csv' into '$target_dir'..."
 
     # Target JPEG/JPG files using native ExifTool flags
-    if exiftool -csv="$input_csv" "-GPSLatitude" "-GPSLatitudeRef<GPSLatitude" "-GPSLongitude" "-GPSLongitudeRef<GPSLongitude" "-GPSAltitude" "-GPSAltitudeRef<GPSAltitude" -ext jpg -ext jpeg -overwrite_original "$target_dir"; then
+    if exiftool -csv="$input_csv" "-DateTimeOriginal" "-Model" "-Title" "-Keywords" "-GPSLatitude" "-GPSLatitudeRef<GPSLatitude" "-GPSLongitude" "-GPSLongitudeRef<GPSLongitude" "-GPSAltitude" "-GPSAltitudeRef<GPSAltitude" -ext jpg -ext jpeg -overwrite_original "$target_dir"; then
         echo "Success! Metadata imported to '$target_dir'"
     else
         echo "An error occurred during metadata import." >&2
         return 1
     fi
+}
+
+img_extract_unique_keywords() {
+    local input_csv="$1"
+    local output_csv="${2:-keywords.csv}"
+
+    if [ -z "$input_csv" ] || [ ! -f "$input_csv" ]; then
+        echo "Usage: extract_unique_keywords <input_metadata.csv> [output_keywords.csv]" >&2
+        return 1
+    fi
+
+    echo "Extracting unique keywords from '$input_csv' into '$output_csv'..."
+
+    awk -F',' '
+    NR==1 {
+        for (i=1; i<=NF; i++) {
+            gsub(/^"|"$/, "", $i)
+            if (tolower($i) == "keywords") col=i
+        }
+        next
+    }
+    col && $col != "" {
+        gsub(/^"|"$/, "", $col)
+        n = split($col, tags, /[,;]/)
+        for (j=1; j<=n; j++) {
+            sub(/^[ \t]+/, "", tags[j])
+            sub(/[ \t]+$/, "", tags[j])
+            if (length(tags[j]) > 0 && tags[j] != "-") {
+                print tags[j]
+            }
+        }
+    }' "$input_csv" | sort -fu | awk 'BEGIN {print "Keywords"} {print "\"" $0 "\""}' > "$output_csv"
+
+    echo "Done! Unique keywords saved to $output_csv"
 }
 
 img_resize() {
@@ -499,6 +533,108 @@ wav_to_flac() {
     done
 
     echo "Processing complete!"
+}
+
+flac_metadata_to_csv() {
+    if [ -z "$1" ] || [ -z "$2" ]; then
+        echo "Usage: flac_metadata_to_csv <input_dir> <output_file.csv>"
+        echo "Example: flac_metadata_to_csv ./flac_audio flac_metadata.csv"
+        return 1
+    fi
+
+    local input_dir="$1"
+    local output_csv="$2"
+
+    check_dir "$input_dir" || return 1
+
+    echo "Generating CSV template from FLAC files in '$input_dir'..."
+
+    # Write CSV Header matching exact Vorbis tag names
+    echo "SourceFile,DATETIMEORIGINAL,MODEL,SOFTWARE,TITLE,KEYWORDS,LOCATION,GPSLATITUDE,GPSLONGITUDE,GPSALTITUDE" > "$output_csv"
+
+    # Find FLAC files and read existing tags using metaflac
+    find "$input_dir" -type f -name "*.flac" | sort | while read -r f; do
+        local datetime model software title keywords location gpslatitude gpslongitude gpsaltitude
+
+        datetime=$(metaflac --show-tag=DATETIMEORIGINAL "$f" | sed 's/^DATETIMEORIGINAL=//' | tr -d '\r')
+        model=$(metaflac --show-tag=MODEL "$f" | sed 's/^MODEL=//' | tr -d '\r')
+        software=$(metaflac --show-tag=SOFTWARE "$f" | sed 's/^SOFTWARE=//' | tr -d '\r')
+        title=$(metaflac --show-tag=TITLE "$f" | sed 's/^TITLE=//' | tr -d '\r')
+        keywords=$(metaflac --show-tag=KEYWORDS "$f" | sed 's/^KEYWORDS=//' | tr -d '\r')
+		location=$(metaflac --show-tag=LOCATION "$f" | sed 's/^LOCATION=//' | tr -d '\r')
+        gpslatitude=$(metaflac --show-tag=GPSLATITUDE "$f" | sed 's/^GPSLATITUDE=//' | tr -d '\r')
+        gpslongitude=$(metaflac --show-tag=GPSLONGITUDE "$f" | sed 's/^GPSLONGITUDE=//' | tr -d '\r')
+        gpsaltitude=$(metaflac --show-tag=GPSALTITUDE "$f" | sed 's/^GPSALTITUDE=//' | tr -d '\r')
+
+        echo "\"$f\",\"$datetime\",\"$model\",\"$software\",\"$title\",\"$keywords\",\"$location\",\"$gpslatitude\",\"$gpslongitude\",\"$gpsaltitude\"" >> "$output_csv"
+    done
+
+    echo "Success! CSV metadata saved to: $output_csv"
+}
+
+flac_metadata_from_csv() {
+    if [ -z "$1" ] || [ -z "$2" ]; then
+        echo "Usage: flac_metadata_from_csv <input_file.csv> <target_dir>"
+        echo "Example: flac_metadata_from_csv metadata.csv ./flac_dir"
+        return 1
+    fi
+
+    local input_csv="$1"
+    local target_dir="$2"
+
+    if [ ! -f "$input_csv" ]; then
+        echo "Error: Input CSV file '$input_csv' does not exist." >&2
+        return 1
+    fi
+
+    check_dir "$target_dir" || return 1
+
+    local header=true
+    while IFS=',' read -r sourcefile datetime model software title keywords location gpslatitude gpslongitude gpsaltitude; do
+        
+        # Clean quotes and Windows line endings (\r)
+        sourcefile=$(echo "$sourcefile" | tr -d '"\r')
+        datetime=$(echo "$datetime" | tr -d '"\r')
+        model=$(echo "$model" | tr -d '"\r')
+        software=$(echo "$software" | tr -d '"\r')
+        title=$(echo "$title" | tr -d '"\r')
+        keywords=$(echo "$keywords" | tr -d '"\r')
+		location=$(echo "$location" | tr -d '"\r')
+        gpslatitude=$(echo "$gpslatitude" | tr -d '"\r')
+        gpslongitude=$(echo "$gpslongitude" | tr -d '"\r')
+        gpsaltitude=$(echo "$gpsaltitude" | tr -d '"\r')
+
+        if [ "$header" = true ]; then
+            header=false
+            continue
+        fi
+
+        [ -z "$sourcefile" ] && continue
+
+        local target_file="$sourcefile"
+        if [ ! -f "$target_file" ]; then
+            target_file="$target_dir/$(basename "$sourcefile")"
+        fi
+
+        if [ -f "$target_file" ]; then
+            echo "Updating metadata for: $target_file"
+            
+            # Apply tags using exact matching Vorbis keys
+            [ -n "$datetime" ]     && metaflac --remove-tag=DATETIMEORIGINAL --set-tag="DATETIMEORIGINAL=$datetime" "$target_file"
+            [ -n "$model" ]        && metaflac --remove-tag=MODEL --set-tag="MODEL=$model" "$target_file"
+            [ -n "$software" ]     && metaflac --remove-tag=SOFTWARE --set-tag="SOFTWARE=$software" "$target_file"
+            [ -n "$title" ]        && metaflac --remove-tag=TITLE --set-tag="TITLE=$title" "$target_file"
+            [ -n "$keywords" ]     && metaflac --remove-tag=KEYWORDS --set-tag="KEYWORDS=$keywords" "$target_file"
+			[ -n "$location" ]     && metaflac --remove-tag=LOCATION --set-tag="LOCATION=$location" "$target_file"
+            [ -n "$gpslatitude" ]  && metaflac --remove-tag=GPSLATITUDE --set-tag="GPSLATITUDE=$gpslatitude" "$target_file"
+            [ -n "$gpslongitude" ] && metaflac --remove-tag=GPSLONGITUDE --set-tag="GPSLONGITUDE=$gpslongitude" "$target_file"
+            [ -n "$gpsaltitude" ]  && metaflac --remove-tag=GPSALTITUDE --set-tag="GPSALTITUDE=$gpsaltitude" "$target_file"
+        else
+            echo "Warning: File '$target_file' not found." >&2
+        fi
+    done < "$input_csv"
+
+    echo "Metadata import completed."
 }
 
 flac_to_wav() {

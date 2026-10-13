@@ -29,6 +29,7 @@ The Functions Summary Table lists the functions and their purpose. Calling a fun
 | img_gps_cp | Copy GPS latitude, longitude - both in decimal degrees - and altitude (metres) from a reference image to all jpeg images in the input directory. |
 | img_metadata_to_csv | Extract Title, Keywords, and GPS-related tags from images in a given directory recursively and write to CSV.  |
 | img_metadata_from_csv | Import Title, Keywords, and GPS-related tags from a CSV into images in a given directory.  |
+| img_extract_unique_keywords | Write a list of unique keywords to csv for the input directory. |
 | img_dt_shift | Shift the datetime tags and set the timezone of a directory of images recursively. |
 | img_resize | Resizes all jpeg images in the input directory to a given pixel width or percentage of original size. Writes resized images to the output directory. |
 | img_rotate | Rotates all jpeg images in the input directory n degrees clockwise. Writes rotated images to the output directory. |
@@ -36,6 +37,8 @@ The Functions Summary Table lists the functions and their purpose. Calling a fun
 | wav_create_csv_template | Create a csv metadata template that can be completed and imported into flac files using WAV_to_flac |
 | wav_to_flac | Convert a directory of WAV files to flac format, import metadata from a csv file, and rename the files using metadata tags. Name format title-location-yyyymmdd_hhmmss. |
 | flac_to_wav | Convert a FLAC file or a directory of FLAC files to WAV with the same name. |
+| flac_metadata_to_csv | Write existing FLAC metadata to csv. |
+| flac_metadata_from_csv | Import FLAC metadata from csv. |
 | vid_conv | Convert a video to .mp4 format and copy metadata tags from a tagged reference image. |
 | vid_batch_conv | Same as vid_conv, but takes a directory of video files as input. |
 
