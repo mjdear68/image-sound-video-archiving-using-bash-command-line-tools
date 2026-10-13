@@ -33,8 +33,9 @@ The Functions Summary Table lists the functions and their purpose. Calling a fun
 | img_resize | Resizes all jpeg images in the input directory to a given pixel width or percentage of original size. Writes resized images to the output directory. |
 | img_rotate | Rotates all jpeg images in the input directory n degrees clockwise. Writes rotated images to the output directory. |
 | img_tint | Adds a tint to all jpeg images in the input directory. Writes tinted images to the output directory.|
-| WAV_create_csv_template | Create a csv metadata template that can be completed and imported into flac files using WAV_to_flac |
-| WAV_to_flac | Convert a directory of WAV files to flac format, import metadata from a csv file, and rename the files using metadata tags. Name format title-location-yyyymmdd_hhmmss. |
+| wav_create_csv_template | Create a csv metadata template that can be completed and imported into flac files using WAV_to_flac |
+| wav_to_flac | Convert a directory of WAV files to flac format, import metadata from a csv file, and rename the files using metadata tags. Name format title-location-yyyymmdd_hhmmss. |
+| flac_to_wav | Convert a FLAC file or a directory of FLAC files to WAV with the same name. |
 | vid_conv | Convert a video to .mp4 format and copy metadata tags from a tagged reference image. |
 | vid_batch_conv | Same as vid_conv, but takes a directory of video files as input. |
 
