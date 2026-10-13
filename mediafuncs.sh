@@ -18,11 +18,11 @@ check_dir() {
 # Image Functions
 ###########
 
-img_rename() {
+jpg_rename() {
     # Safety Check: Ensure all arguments are provided
     if [ -z "$1" ] || [ -z "$2" ]; then
-        echo "Usage: img_rename [input_dir] [output_dir]"
-        echo "Example: img_rename ./input ./output"
+        echo "Usage: jpg_rename [input_dir] [output_dir]"
+        echo "Example: jpg_rename ./input ./output"
         return 1
     fi
     
@@ -40,11 +40,11 @@ img_rename() {
              -r -o .  -@ -
 }
 
-img_group() {
+jpg_group() {
     # Safety Check: Ensure all arguments are provided
     if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
-        echo "Usage: img_group_mins [input_dir] [output_dir] [interval_in_minutes] "
-        echo "Example: img_group_mins ./input ./output 30"
+        echo "Usage: jpg_group_mins [input_dir] [output_dir] [interval_in_minutes] "
+        echo "Example: jpg_group_mins ./input ./output 30"
         return 1
     fi
 	
@@ -64,11 +64,11 @@ img_group() {
              -@ -
 }
 
-img_desc() {
+jpg_desc() {
     # Safety Check: Ensure all arguments are provided
     if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
-        echo "Usage: img_desc [input_dir] [title] [keywords] "
-        echo 'Example: img_desc ./input "Autumn leaves" "landscape; trees;"'
+        echo "Usage: jpg_desc [input_dir] [title] [keywords] "
+        echo 'Example: jpg_desc ./input "Autumn leaves" "landscape; trees;"'
         return 1
     fi
     
@@ -85,11 +85,11 @@ img_desc() {
         exiftool -overwrite_original -Title="$title" -Keywords="$keywords" -@ -
 }
 
-img_gps_cp() {
+jpg_gps_cp() {
     # Safety Check: Ensure all arguments are provided
     if [ -z "$1" ] || [ -z "$2" ]; then
-        echo "Usage: img_gps_cp [reference_image] [input_dir]"
-        echo 'Example: img_gps_cp ref.jpg ./input'
+        echo "Usage: jpg_gps_cp [reference_image] [input_dir]"
+        echo 'Example: jpg_gps_cp ref.jpg ./input'
         return 1
     fi
     
@@ -105,12 +105,12 @@ img_gps_cp() {
         exiftool -overwrite_original -tagsfromfile "$ref" -GPSLatitude* -GPSLongitude* -GPSAltitude* -@ -
 }
 
-img_dt_shift() {
+jpg_dt_shift() {
     # Safety Check: Ensure required arguments are provided
     if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
-        echo "Usage: img_dt_shift [input_dir] [output_dir] [+/-hh:mm:ss] [optional_new_tz_offset]"
-        echo "Example: img_dt_shift ./input ./output -09:00:00"
-        echo "Example (with TZ): img_dt_shift ./input ./output -09:00:00 -05:00"
+        echo "Usage: jpg_dt_shift [input_dir] [output_dir] [+/-hh:mm:ss] [optional_new_tz_offset]"
+        echo "Example: jpg_dt_shift ./input ./output -09:00:00"
+        echo "Example (with TZ): jpg_dt_shift ./input ./output -09:00:00 -05:00"
         return 1
     fi
     
@@ -144,11 +144,11 @@ img_dt_shift() {
 }
 
 
-img_cp() {
+jpg_cp() {
     # Safety Check: Ensure all arguments are provided
     if [ -z "$1" ] || [ -z "$2" ]; then
-        echo "Usage: img_cp [input_dir] [output_dir]"
-        echo "Example: img_cp ./input ./output"
+        echo "Usage: jpg_cp [input_dir] [output_dir]"
+        echo "Example: jpg_cp ./input ./output"
         return 1
     fi
 	
@@ -166,11 +166,11 @@ img_cp() {
     find "$input" -regextype posix-extended -type f -iregex "$regex_ext" -exec cp -v -r -i {} "$output/" \;
 }
 
-img_rm() {
+jpg_rm() {
     # Safety Check: Ensure all arguments are provided
     if [ -z "$1" ]; then
-        echo "Usage: img_rm [input_dir]"
-        echo "Example: img_rm ./input"
+        echo "Usage: jpg_rm [input_dir]"
+        echo "Example: jpg_rm ./input"
         echo "WARNING: This process cannot be undone."
         return 1
     fi
@@ -198,11 +198,11 @@ img_rm() {
     esac
 }
 
-img_metadata_to_csv() {
+jpg_metadata_to_csv() {
     # Safety Check: Ensure all arguments are provided
     if [ -z "$1" ] || [ -z "$2" ]; then
-        echo "Usage: img_exif_to_csv [input_dir] [output_file.csv]"
-        echo "Example: img_exif_to_csv ./input metadata.csv" 
+        echo "Usage: jpg_exif_to_csv [input_dir] [output_file.csv]"
+        echo "Example: jpg_exif_to_csv ./input metadata.csv" 
         return 1
     fi
     
@@ -238,11 +238,11 @@ img_metadata_to_csv() {
 }
 
 # Will not work for flac; exiftool can read flac only
-img_metadata_from_csv() {
+jpg_metadata_from_csv() {
     # Safety Check: Ensure required arguments are provided
     if [ -z "$1" ] || [ -z "$2" ]; then
-        echo "Usage: img_exif_from_csv <input_file.csv> <target_dir>"
-        echo "Example: img_exif_from_csv metadata.csv ./image_dir" 
+        echo "Usage: jpg_exif_from_csv <input_file.csv> <target_dir>"
+        echo "Example: jpg_exif_from_csv metadata.csv ./image_dir" 
         return 1
     fi
     
@@ -269,7 +269,7 @@ img_metadata_from_csv() {
     fi
 }
 
-img_extract_unique_keywords() {
+jpg_extract_unique_keywords() {
     local input_csv="$1"
     local output_csv="${2:-keywords.csv}"
 
@@ -303,11 +303,11 @@ img_extract_unique_keywords() {
     echo "Done! Unique keywords saved to $output_csv"
 }
 
-img_resize() {
+jpg_resize() {
     # Safety Check: Ensure all arguments are provided
     if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
-        echo "Usage: img_resize [input_dir] [output_dir] [new_width_px_or_%] "
-        echo "Example: img_resize ./input ./output 50%"
+        echo "Usage: jpg_resize [input_dir] [output_dir] [new_width_px_or_%] "
+        echo "Example: jpg_resize ./input ./output 50%"
         return 1
     fi
     
@@ -326,11 +326,11 @@ img_resize() {
 	find "$input" -regextype posix-extended -type f -iregex "$regex_ext" -exec magick mogrify -path "$output" -resize "$new_width" {} +
 }
 
-img_rotate() {
+jpg_rotate() {
     # Safety Check: Ensure all arguments are provided
     if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
-        echo "Usage: img_rotate [input_dir] [output_dir] [angle_degrees] "
-        echo "Example: img_rotate ./input ./output 90"
+        echo "Usage: jpg_rotate [input_dir] [output_dir] [angle_degrees] "
+        echo "Example: jpg_rotate ./input ./output 90"
         return 1
     fi
     
@@ -349,11 +349,11 @@ img_rotate() {
     find "$input" -regextype posix-extended -type f -iregex "$regex_ext" -exec magick mogrify -path "$output" -rotate "$angle" {} +
 }
 
-img_tint() {
+jpg_tint() {
     # Safety Check: Ensure all 4 arguments are provided
     if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]; then
-        echo "Usage:   img_tint [input_dir] [output_dir] [fill_colour] [strength%]"
-        echo "Example: img_tint ./input ./output \"rgb(240,200,160)\" 10%"
+        echo "Usage:   jpg_tint [input_dir] [output_dir] [fill_colour] [strength%]"
+        echo "Example: jpg_tint ./input ./output \"rgb(240,200,160)\" 10%"
         return 1
     fi
 	
