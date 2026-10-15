@@ -261,7 +261,13 @@ jpg_metadata_from_csv() {
     echo "Importing metadata from '$input_csv' into '$target_dir'..."
 
     # Target JPEG/JPG files using native ExifTool flags
-    if exiftool -csv="$input_csv" "-DateTimeOriginal" "-Model" "-Title" "-Keywords" "-GPSLatitude" "-GPSLatitudeRef<GPSLatitude" "-GPSLongitude" "-GPSLongitudeRef<GPSLongitude" "-GPSAltitude" "-GPSAltitudeRef<GPSAltitude" -ext jpg -ext jpeg -overwrite_original "$target_dir"; then
+    if exiftool -csv="$input_csv" -r \
+	"-DateTimeOriginal" "-Model" "-Title" "-Keywords" \
+	"-GPSLatitude" "-GPSLatitudeRef<GPSLatitude" \
+	"-GPSLongitude" "-GPSLongitudeRef<GPSLongitude" \
+	"-GPSAltitude" "-GPSAltitudeRef<GPSAltitude" \
+	-ext jpg -ext jpeg -overwrite_original \
+	"$target_dir"; then
         echo "Success! Metadata imported to '$target_dir'"
     else
         echo "An error occurred during metadata import." >&2
@@ -269,7 +275,7 @@ jpg_metadata_from_csv() {
     fi
 }
 
-jpg_extract_unique_keywords() {
+extract_unique_keywords() {
     local input_csv="$1"
     local output_csv="${2:-keywords.csv}"
 
@@ -278,29 +284,48 @@ jpg_extract_unique_keywords() {
         return 1
     fi
 
-    echo "Extracting unique keywords from '$input_csv' into '$output_csv'..."
+    echo "Extracting unique keywords with counts from '$input_csv' into '$output_csv'..."
 
-    awk -F',' '
+    awk '
+    BEGIN {
+        FPAT = "([^,]+)|(\"[^\"]*\")"
+    }
     NR==1 {
         for (i=1; i<=NF; i++) {
-            gsub(/^"|"$/, "", $i)
-            if (tolower($i) == "keywords") col=i
+            temp = $i
+            gsub(/^"|"$/, "", temp)
+            if (tolower(temp) == "keywords") col=i
         }
         next
     }
     col && $col != "" {
-        gsub(/^"|"$/, "", $col)
-        n = split($col, tags, /[,;]/)
+        val = $col
+        gsub(/^"|"$/, "", val)
+        
+        n = split(val, tags, /[,;|\n]/)
         for (j=1; j<=n; j++) {
             sub(/^[ \t]+/, "", tags[j])
             sub(/[ \t]+$/, "", tags[j])
+            
             if (length(tags[j]) > 0 && tags[j] != "-") {
-                print tags[j]
+                counts[tags[j]]++
             }
         }
-    }' "$input_csv" | sort -fu | awk 'BEGIN {print "Keywords"} {print "\"" $0 "\""}' > "$output_csv"
+    }
+    END {
+        print "Keyword,Count"
+        
+        # Tell gawk to iterate over the array sorted by value (count) descending
+        PROCINFO["sorted_in"] = "@val_num_desc"
+        
+        for (kw in counts) {
+            clean_kw = kw
+            gsub(/"/, "\"\"", clean_kw)
+            print "\"" clean_kw "\"," counts[kw]
+        }
+    }' "$input_csv" > "$output_csv"
 
-    echo "Done! Unique keywords saved to $output_csv"
+    echo "Done! Unique keywords and counts saved to $output_csv"
 }
 
 jpg_resize() {
