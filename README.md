@@ -21,19 +21,19 @@ The Functions Summary Table lists the functions and their purpose. Calling a fun
 
 | Name | Purpose |
 |------|---------|
-| img_rename | Rename images using image metadata. Output format *(camera model)-yyyymmdd_hhmmss_(sequence number).jpg* . A sequential number will be added to the end of filename collisions. |
-| img_group | Copies jpeg images from the input directory into subdirectories of the output directory grouped by create date and a user-provided time interval in minutes e.g. 2026-05-05_17/30min/ |
-| img_desc | Writes a title and keywords to all jpeg images in the input directory. |
-| img_cp | Copy all jpeg images from the input directory to the ouput directory. |
-| img_rm | Delete all jpeg images and empty directories recursively from the input directory.|
-| img_gps_cp | Copy GPS latitude, longitude - both in decimal degrees - and altitude (metres) from a reference image to all jpeg images in the input directory. |
-| img_metadata_to_csv | Extract Title, Keywords, and GPS-related tags from images in a given directory recursively and write to CSV.  |
-| img_metadata_from_csv | Import Title, Keywords, and GPS-related tags from a CSV into images in a given directory.  |
-| img_extract_unique_keywords | Write a list of unique keywords to csv for the input directory. |
-| img_dt_shift | Shift the datetime tags and set the timezone of a directory of images recursively. |
-| img_resize | Resizes all jpeg images in the input directory to a given pixel width or percentage of original size. Writes resized images to the output directory. |
-| img_rotate | Rotates all jpeg images in the input directory n degrees clockwise. Writes rotated images to the output directory. |
-| img_tint | Adds a tint to all jpeg images in the input directory. Writes tinted images to the output directory.|
+| jpg_rename | Rename images using image metadata. Output format *(camera model)-yyyymmdd_hhmmss_(sequence number).jpg* . A sequential number will be added to the end of filename collisions. |
+| jpg_group | Copies jpeg images from the input directory into subdirectories of the output directory grouped by create date and a user-provided time interval in minutes e.g. 2026-05-05_17/30min/ |
+| jpg_desc | Writes a title and keywords to all jpeg images in the input directory. |
+| jpg_cp | Copy all jpeg images from the input directory to the ouput directory. |
+| jpg_rm | Delete all jpeg images and empty directories recursively from the input directory.|
+| jpg_gps_cp | Copy GPS latitude, longitude - both in decimal degrees - and altitude (metres) from a reference image to all jpeg images in the input directory. |
+| jpg_metadata_to_csv | Extract Title, Keywords, and GPS-related tags from images in a given directory recursively and write to CSV.  |
+| jpg_metadata_from_csv | Import Title, Keywords, and GPS-related tags from a CSV into images in a given directory.  |
+| extract_unique_keywords | Write a list of unique keywords with counts in a metadata csv to a keywords csv. Works with metadata csv created using jpg_metadata_to_csv and flac_metadata_to_csv. |
+| jpg_dt_shift | Shift the datetime tags and set the timezone of a directory of images recursively. |
+| jpg_resize | Resizes all jpeg images in the input directory to a given pixel width or percentage of original size. Writes resized images to the output directory. |
+| jpg_rotate | Rotates all jpeg images in the input directory n degrees clockwise. Writes rotated images to the output directory. |
+| jpg_tint | Adds a tint to all jpeg images in the input directory. Writes tinted images to the output directory.|
 | wav_create_csv_template | Create a csv metadata template that can be completed and imported into flac files using WAV_to_flac |
 | wav_to_flac | Convert a directory of WAV files to flac format, import metadata from a csv file, and rename the files using metadata tags. Name format title-location-yyyymmdd_hhmmss. |
 | flac_to_wav | Convert a FLAC file or a directory of FLAC files to WAV with the same name. |
@@ -69,22 +69,22 @@ Although the functions can be used independently, they are best used as a part o
 | Change to the `photos` directory | `cd photos` |
 | Camera dump into `original` directory | Drag-and-drop or your preferred method |
 | Manual review - delete unwanted images | File manager or photo organiser GUI |
-| Rename images | `img_rename original output/renamed` |
-| Group images | `img_group output/renamed output/grouped` |
-| Manual review, then write title and keywords | `img_desc output/grouped/date_hour/mins "Image title" "kwd1; kwd2; kwd3"` |
-| Copy to image archive | `img_cp output/grouped archive_dir` |
+| Rename images | `jpg_rename original output/renamed` |
+| Group images | `jpg_group output/renamed output/grouped` |
+| Manual review, then write title and keywords | `jpg_desc output/grouped/date_hour/mins "Image title" "kwd1; kwd2; kwd3"` |
+| Copy to image archive | `jpg_cp output/grouped archive_dir` |
 | Process videos using tagged reference images | `vid_conv vid.avi ref_img.jpg 18`  |
-| Clean up | `img_rm output` |
+| Clean up | `jpg_rm output` |
 | Copy processed videos to video archive | This is currently a manual process. A vid_cp function to be added in a future version. | 
 
 : Image Processing Workflow
 
 ### Alternative Workflow: CSV Export / Import
 
-Replace the `img_group` and `img_desc` steps in the above workflow with `img_exif_to_csv` and `img_exif_from_csv`. 
+Replace the `jpg_group` and `jpg_desc` steps in the above workflow with `jpg_exif_to_csv` and `jpg_exif_from_csv`. 
 
-1. Export the existing title, keywords, GPS, and altitude EXIF tags from the renamed images to csv using `img_exif_to_csv`. 
-2. Edit the exported csv, then bulk import the updated tags into the renamed images using `img_exif_from_csv`. 
+1. Export the existing title, keywords, GPS, and altitude EXIF tags from the renamed images to csv using `jpg_exif_to_csv`. 
+2. Edit the exported csv, then bulk import the updated tags into the renamed images using `jpg_exif_from_csv`. 
 3. Proceed with the remainder of the original workflow.
 
 
